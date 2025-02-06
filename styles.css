@@ -40,17 +40,13 @@ body {
 }
 
 .form-container {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
     background: white;
     padding: 20px;
-    border-radius: 20px 20px 0 0;
-    box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
-    z-index: 1001;
-    transform: translateY(100%);
-    transition: transform 0.3s ease-out;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
 }
 
 .hidden {
@@ -108,20 +104,23 @@ input, textarea {
 .form-buttons {
     display: flex;
     gap: 10px;
-    margin-top: 15px;
+    margin-top: 20px;
 }
 
 .form-buttons button {
     flex: 1;
-    padding: 12px;
+    padding: 10px;
     border: none;
-    border-radius: 8px;
-    font-size: 16px;
-    font-weight: bold;
+    border-radius: 6px;
+    cursor: pointer;
 }
 
-button[type="submit"] {
-    background: #2196F3;
+.form-buttons button[type="button"] {
+    background: #f5f5f5;
+}
+
+.form-buttons button[type="submit"] {
+    background: #4CAF50;
     color: white;
 }
 
@@ -132,9 +131,10 @@ button[type="submit"] {
 
 /* Add these styles */
 #cafeName {
-    padding-right: 30px;
-    background-color: #fff;
-    transition: background-color 0.3s;
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
 }
 
 #cafeName.loading {
@@ -142,8 +142,8 @@ button[type="submit"] {
 }
 
 .search-container {
+    margin-bottom: 20px;
     position: relative;
-    margin-bottom: 15px;
 }
 
 .search-container::after {
@@ -162,34 +162,33 @@ button[type="submit"] {
     right: 0;
     background: white;
     border: 1px solid #ddd;
-    border-radius: 8px;
-    margin-top: 4px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-    z-index: 1000;
-    display: none;
+    border-radius: 6px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    z-index: 2100;
+    max-height: 300px;
+    overflow-y: auto;
 }
 
 .search-result-item {
-    padding: 12px;
+    padding: 10px;
     cursor: pointer;
     border-bottom: 1px solid #eee;
+}
+
+.search-result-item:hover {
+    background: #f5f5f5;
 }
 
 .search-result-item:last-child {
     border-bottom: none;
 }
 
-.search-result-item:hover {
-    background-color: #f5f5f5;
-}
-
 .place-name {
     font-weight: bold;
-    margin-bottom: 4px;
 }
 
 .place-address {
-    font-size: 12px;
+    font-size: 0.9em;
     color: #666;
 }
 
@@ -201,18 +200,37 @@ button[type="submit"] {
 }
 
 .popup-content {
-    padding: 5px;
+    text-align: center;
+    padding: 10px;
 }
 
-.popup-content h3 {
-    margin: 0 0 5px 0;
-    font-size: 16px;
+.quick-ratings {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin: 10px 0;
 }
 
-.popup-content p {
-    margin: 3px 0;
-    font-size: 12px;
+.rating-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
 }
+
+.rating-item i {
+    font-size: 1.2em;
+    color: #666;
+}
+
+.rating-value {
+    font-size: 0.9em;
+    font-weight: bold;
+}
+
+.rating-level-1 { color: #f44336; }
+.rating-level-2 { color: #2196F3; }
+.rating-level-3 { color: #4CAF50; }
 
 .ratings {
     margin-top: 8px;
@@ -221,4 +239,212 @@ button[type="submit"] {
 .ratings p {
     margin: 2px 0;
     color: #666;
+}
+
+.details-panel {
+    position: fixed;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 300px;
+    background: white;
+    box-shadow: -2px 0 5px rgba(0,0,0,0.1);
+    padding: 0;
+    transform: translateX(100%);
+    animation: slideIn 0.3s forwards;
+    z-index: 1000;
+}
+
+.slide-out {
+    animation: slideOut 0.3s forwards;
+}
+
+@keyframes slideIn {
+    to { transform: translateX(0); }
+}
+
+@keyframes slideOut {
+    from { transform: translateX(0); }
+    to { transform: translateX(100%); }
+}
+
+.panel-header {
+    background: #f8f9fa;
+    padding: 15px 20px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.panel-header h2 {
+    margin: 0;
+    font-size: 1.2em;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    font-size: 1.2em;
+    cursor: pointer;
+    padding: 5px;
+    color: #666;
+}
+
+.close-btn:hover {
+    color: #333;
+}
+
+.panel-content {
+    padding: 20px;
+}
+
+.cafe-address {
+    color: #666;
+    margin-bottom: 20px;
+    font-style: italic;
+}
+
+.detailed-ratings {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.rating-detail {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.rating-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.category-name {
+    font-weight: 500;
+}
+
+.rating-footer {
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid #eee;
+    color: #666;
+    font-size: 0.9em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.add-cafe-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #4CAF50;
+    color: white;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    z-index: 1000;
+}
+
+.add-cafe-btn:hover {
+    background: #45a049;
+    transform: scale(1.05);
+}
+
+.form-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+
+.form-overlay.hidden {
+    display: none;
+}
+
+.form-overlay.visible {
+    display: flex;
+}
+
+.rating-options {
+    display: flex;
+    gap: 10px;
+    margin-top: 8px;
+}
+
+.rating-option {
+    flex: 1;
+    text-align: center;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.rating-option:hover {
+    background: #f5f5f5;
+}
+
+.rating-option input {
+    display: none;
+}
+
+.rating-option input:checked + .rating-label {
+    font-weight: bold;
+    color: #4CAF50;
+}
+
+.notification {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    padding: 12px 24px;
+    border-radius: 8px;
+    color: white;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    opacity: 0;
+    transition: transform 0.3s, opacity 0.3s;
+    z-index: 2000;
+}
+
+.notification.success {
+    background: #4CAF50;
+}
+
+.notification.error {
+    background: #f44336;
+}
+
+.notification.show {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+}
+
+.notification i {
+    font-size: 16px;
 }

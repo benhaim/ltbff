@@ -27,48 +27,128 @@
 </head>
 <body>
     <div id="map"></div>
-    <button id="addCafeBtn" class="floating-button">+</button>
+    <button id="addCafeBtn" class="add-cafe-btn">
+        <i class="fa-solid fa-plus"></i>
+    </button>
 
-    <div id="addCafeForm" class="form-container hidden">
-        <div class="form-content">
-            <h2>Add New Café</h2>
+    <div id="addCafeForm" class="form-overlay hidden">
+        <div class="form-container">
+            <h2>Add New Place</h2>
             <form id="cafeForm">
                 <div class="search-container">
-                    <input 
-                        type="text" 
-                        id="cafeName" 
-                        placeholder="Search for a café..." 
-                        autocomplete="off"
-                        required
-                    >
+                    <input type="text" id="cafeName" placeholder="Search for a place..." required>
                 </div>
-                
-                <div class="rating-group">
-                    <div class="rating-row">
-                        <span class="rating-label">WiFi</span>
-                        <div class="star-rating" data-rating="wifi"></div>
+
+                <div class="ratings-container">
+                    <div class="rating-group">
+                        <label>
+                            <i class="fa-solid fa-wifi"></i>
+                            WiFi
+                        </label>
+                        <div class="rating-options" data-rating="wifi">
+                            <label class="rating-option">
+                                <input type="radio" name="wifi" value="1">
+                                <span class="rating-label">Basic</span>
+                            </label>
+                            <label class="rating-option">
+                                <input type="radio" name="wifi" value="2">
+                                <span class="rating-label">Fast</span>
+                            </label>
+                            <label class="rating-option">
+                                <input type="radio" name="wifi" value="3">
+                                <span class="rating-label">Rocket 🚀</span>
+                            </label>
+                        </div>
                     </div>
-                    <div class="rating-row">
-                        <span class="rating-label">Power Outlets</span>
-                        <div class="star-rating" data-rating="power"></div>
+
+                    <div class="rating-group">
+                        <label>
+                            <i class="fa-solid fa-plug"></i>
+                            Power Outlets
+                        </label>
+                        <div class="rating-options" data-rating="power">
+                            <label class="rating-option">
+                                <input type="radio" name="power" value="1">
+                                <span class="rating-label">Rare</span>
+                            </label>
+                            <label class="rating-option">
+                                <input type="radio" name="power" value="2">
+                                <span class="rating-label">Available</span>
+                            </label>
+                            <label class="rating-option">
+                                <input type="radio" name="power" value="3">
+                                <span class="rating-label">Abundant</span>
+                            </label>
+                        </div>
                     </div>
-                    <div class="rating-row">
-                        <span class="rating-label">Quietness</span>
-                        <div class="star-rating" data-rating="quiet"></div>
+
+                    <div class="rating-group">
+                        <label>
+                            <i class="fa-solid fa-volume-low"></i>
+                            Quiet
+                        </label>
+                        <div class="rating-options" data-rating="quiet">
+                            <label class="rating-option">
+                                <input type="radio" name="quiet" value="1">
+                                <span class="rating-label">Lively</span>
+                            </label>
+                            <label class="rating-option">
+                                <input type="radio" name="quiet" value="2">
+                                <span class="rating-label">Chill</span>
+                            </label>
+                            <label class="rating-option">
+                                <input type="radio" name="quiet" value="3">
+                                <span class="rating-label">Silent</span>
+                            </label>
+                        </div>
                     </div>
-                    <div class="rating-row">
-                        <span class="rating-label">Coffee</span>
-                        <div class="star-rating" data-rating="coffee"></div>
+
+                    <div class="rating-group">
+                        <label>
+                            <i class="fa-solid fa-mug-hot"></i>
+                            Coffee
+                        </label>
+                        <div class="rating-options" data-rating="coffee">
+                            <label class="rating-option">
+                                <input type="radio" name="coffee" value="1">
+                                <span class="rating-label">Basic</span>
+                            </label>
+                            <label class="rating-option">
+                                <input type="radio" name="coffee" value="2">
+                                <span class="rating-label">Good</span>
+                            </label>
+                            <label class="rating-option">
+                                <input type="radio" name="coffee" value="3">
+                                <span class="rating-label">Amazing</span>
+                            </label>
+                        </div>
                     </div>
-                    <div class="rating-row">
-                        <span class="rating-label">Food</span>
-                        <div class="star-rating" data-rating="food"></div>
+
+                    <div class="rating-group">
+                        <label>
+                            <i class="fa-solid fa-utensils"></i>
+                            Food
+                        </label>
+                        <div class="rating-options" data-rating="food">
+                            <label class="rating-option">
+                                <input type="radio" name="food" value="1">
+                                <span class="rating-label">None</span>
+                            </label>
+                            <label class="rating-option">
+                                <input type="radio" name="food" value="2">
+                                <span class="rating-label">Snacks</span>
+                            </label>
+                            <label class="rating-option">
+                                <input type="radio" name="food" value="3">
+                                <span class="rating-label">Full Menu</span>
+                            </label>
+                        </div>
                     </div>
                 </div>
 
                 <div class="form-buttons">
-                    <button type="submit">Add</button>
                     <button type="button" id="cancelBtn">Cancel</button>
+                    <button type="submit">Submit</button>
                 </div>
             </form>
         </div>

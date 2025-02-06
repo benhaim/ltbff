@@ -5,6 +5,23 @@ console.log('Script loaded at:', new Date().toISOString());
 let map;
 const cafes = [];
 
+// Add this near the top with other global variables
+const ratingLabels = {
+    wifi: ['Basic', 'Fast', 'Rocket 🚀'],
+    power: ['Rare', 'Available', 'Abundant'],
+    quiet: ['Lively', 'Chill', 'Silent'],
+    coffee: ['Basic', 'Good', 'Amazing'],
+    food: ['None', 'Snacks', 'Full Menu']
+};
+
+const categoryIcons = {
+    wifi: 'fa-wifi',
+    power: 'fa-plug',
+    quiet: 'fa-volume-low',
+    coffee: 'fa-mug-hot',
+    food: 'fa-utensils'
+};
+
 // Wait for DOM to be fully loaded
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, initializing elements');
@@ -25,6 +42,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize form controls
     if (addCafeBtn && addCafeForm) {
         addCafeBtn.addEventListener('click', () => {
+            console.log('Add button clicked');
             addCafeForm.classList.remove('hidden');
             addCafeForm.classList.add('visible');
         });
@@ -32,8 +50,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (cancelBtn && addCafeForm) {
         cancelBtn.addEventListener('click', () => {
+            console.log('Cancel button clicked');
             addCafeForm.classList.add('hidden');
             addCafeForm.classList.remove('visible');
+            // Clear the form
+            if (cafeForm) cafeForm.reset();
         });
     }
 
@@ -162,8 +183,8 @@ function initializeStarRatings() {
         // Clear existing stars first
         container.innerHTML = '';
         
-        // Add 5 stars
-        for (let i = 1; i <= 5; i++) {
+        // Add 3 stars instead of 5
+        for (let i = 1; i <= 3; i++) {
             const star = document.createElement('span');
             star.className = 'star';
             star.innerHTML = '☆';
@@ -201,9 +222,20 @@ function initAutocomplete() {
     try {
         const service = new google.maps.places.PlacesService(document.createElement('div'));
         let searchTimeout;
+        let resultsContainer;
+
+        // Create results container if it doesn't exist
+        if (!document.querySelector('.search-results')) {
+            resultsContainer = document.createElement('div');
+            resultsContainer.className = 'search-results';
+            input.parentNode.appendChild(resultsContainer);
+        } else {
+            resultsContainer = document.querySelector('.search-results');
+        }
 
         input.addEventListener('input', function() {
             const searchText = this.value;
+            console.log('Search text:', searchText);
 
             if (searchTimeout) {
                 clearTimeout(searchTimeout);
@@ -214,10 +246,8 @@ function initAutocomplete() {
                 return;
             }
 
-            input.classList.add('loading');
-
             searchTimeout = setTimeout(() => {
-                const location = { lat: 18.7883, lng: 98.9853 }; // Chiang Mai coordinates
+                const location = map.getCenter();
                 
                 const request = {
                     query: searchText,
@@ -226,12 +256,11 @@ function initAutocomplete() {
                 };
 
                 service.textSearch(request, (results, status) => {
-                    input.classList.remove('loading');
                     console.log('Search status:', status);
                     console.log('Results:', results);
 
                     if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-                        showResults(results);
+                        showResults(results, resultsContainer);
                     } else {
                         resultsContainer.innerHTML = '<div class="search-result-item">No results found</div>';
                         resultsContainer.style.display = 'block';
@@ -240,18 +269,9 @@ function initAutocomplete() {
             }, 300);
         });
 
-        const resultsContainer = document.createElement('div');
-        resultsContainer.className = 'search-results';
-        input.parentNode.appendChild(resultsContainer);
-
-        function showResults(places) {
-            resultsContainer.innerHTML = '';
-            resultsContainer.style.display = 'block';
-
-            if (places.length === 0) {
-                resultsContainer.innerHTML = '<div class="search-result-item">No results found</div>';
-                return;
-            }
+        function showResults(places, container) {
+            container.innerHTML = '';
+            container.style.display = 'block';
 
             places.slice(0, 5).forEach(place => {
                 const div = document.createElement('div');
@@ -264,7 +284,7 @@ function initAutocomplete() {
                 
                 div.onclick = () => {
                     input.value = place.name;
-                    resultsContainer.style.display = 'none';
+                    container.style.display = 'none';
 
                     const selectedPlace = {
                         name: place.name,
@@ -273,16 +293,22 @@ function initAutocomplete() {
                         address: place.formatted_address
                     };
 
-                    cafeForm.dataset.selectedPlace = JSON.stringify(selectedPlace);
+                    document.getElementById('cafeForm').dataset.selectedPlace = JSON.stringify(selectedPlace);
+                    
+                    // Center map on selected place
                     map.setView([selectedPlace.lat, selectedPlace.lng], 18);
 
-                    L.marker([selectedPlace.lat, selectedPlace.lng])
+                    // Add temporary marker
+                    if (window.tempMarker) {
+                        map.removeLayer(window.tempMarker);
+                    }
+                    window.tempMarker = L.marker([selectedPlace.lat, selectedPlace.lng])
                         .addTo(map)
                         .bindPopup(selectedPlace.name)
                         .openPopup();
                 };
 
-                resultsContainer.appendChild(div);
+                container.appendChild(div);
             });
         }
 
@@ -300,83 +326,138 @@ function initAutocomplete() {
 }
 
 function createPopupContent(cafe) {
-    const stars = (rating) => '★'.repeat(Math.round(rating)) + '☆'.repeat(5 - Math.round(rating));
+    const popupContent = document.createElement('div');
+    popupContent.className = 'popup-content';
     
-    return `
-        <div class="popup-content">
-            <h3>${cafe.name}</h3>
-            ${cafe.address ? `<p>${cafe.address}</p>` : ''}
-            <div class="ratings">
-                <p>WiFi: ${stars(cafe.ratings.wifi)} (${cafe.ratings.wifi.toFixed(1)})</p>
-                <p>Power: ${stars(cafe.ratings.power)} (${cafe.ratings.power.toFixed(1)})</p>
-                <p>Quiet: ${stars(cafe.ratings.quiet)} (${cafe.ratings.quiet.toFixed(1)})</p>
-                <p>Coffee: ${stars(cafe.ratings.coffee)} (${cafe.ratings.coffee.toFixed(1)})</p>
-                <p>Food: ${stars(cafe.ratings.food)} (${cafe.ratings.food.toFixed(1)})</p>
+    popupContent.innerHTML = `
+        <h3>${cafe.name}</h3>
+        <div class="quick-ratings">
+            ${Object.entries(cafe.ratings).map(([category, rating]) => `
+                <div class="rating-item" title="${category}">
+                    <i class="fa-solid ${categoryIcons[category]}"></i>
+                    <span class="rating-value rating-level-${rating}">${rating}/3</span>
+                </div>
+            `).join('')}
+        </div>
+        <button class="details-btn">
+            <i class="fa-solid fa-circle-info"></i> More Details
+        </button>
+    `;
+    
+    // Add click handler to the button
+    const detailsBtn = popupContent.querySelector('.details-btn');
+    detailsBtn.addEventListener('click', () => showDetailedRatings(cafe));
+    
+    return popupContent;
+}
+
+// Separate detailed view in a side panel
+function showDetailedRatings(cafe) {
+    // Remove any existing panel first
+    const existingPanel = document.querySelector('.details-panel');
+    if (existingPanel) existingPanel.remove();
+
+    const panel = document.createElement('div');
+    panel.className = 'details-panel';
+    panel.innerHTML = `
+        <div class="panel-header">
+            <h2>${cafe.name}</h2>
+            <button class="close-btn">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="panel-content">
+            <p class="cafe-address">${cafe.address || 'No address provided'}</p>
+            
+            <div class="detailed-ratings">
+                ${Object.entries(cafe.ratings).map(([category, rating]) => `
+                    <div class="rating-detail">
+                        <div class="rating-header">
+                            <i class="fa-solid ${categoryIcons[category]}"></i>
+                            <span class="category-name">${ratingLabels[category][rating-1]}</span>
+                        </div>
+                        <div class="rating-value rating-level-${rating}">
+                            ${rating}/3
+                        </div>
+                    </div>
+                `).join('')}
             </div>
-            <p class="total-ratings">Based on ${cafe.total_ratings || 1} rating${cafe.total_ratings !== 1 ? 's' : ''}</p>
+            
+            <div class="rating-footer">
+                <i class="fa-solid fa-chart-simple"></i>
+                Based on ${cafe.total_ratings || 1} rating${cafe.total_ratings !== 1 ? 's' : ''}
+            </div>
         </div>
     `;
+    
+    document.body.appendChild(panel);
+    
+    // Add close button handler
+    panel.querySelector('.close-btn').onclick = () => {
+        panel.classList.add('slide-out');
+        setTimeout(() => panel.remove(), 300); // Match animation duration
+    };
 }
 
 function showSuccessPopup(data) {
-    const successPopup = document.createElement('div');
-    successPopup.style.position = 'fixed';
-    successPopup.style.top = '50%';
-    successPopup.style.left = '50%';
-    successPopup.style.transform = 'translate(-50%, -50%)';
-    successPopup.style.backgroundColor = '#4CAF50';
-    successPopup.style.color = 'white';
-    successPopup.style.padding = '20px';
-    successPopup.style.borderRadius = '10px';
-    successPopup.style.zIndex = '1000';
-    successPopup.style.boxShadow = '0 0 10px rgba(0,0,0,0.5)';
-    
-    successPopup.innerHTML = `
-        <h3>✅ Café Saved Successfully!</h3>
-        <p><strong>${data.savedData.name}</strong></p>
-        <p>${data.savedData.address}</p>
-        <p>Ratings:</p>
-        <ul>
-            <li>WiFi: ${data.savedData.ratings.wifi}⭐</li>
-            <li>Power: ${data.savedData.ratings.power}⭐</li>
-            <li>Quiet: ${data.savedData.ratings.quiet}⭐</li>
-            <li>Coffee: ${data.savedData.ratings.coffee}⭐</li>
-            <li>Food: ${data.savedData.ratings.food}⭐</li>
-        </ul>
-        <p>ID in database: ${data.id}</p>
+    // Update the marker's popup content for the rated place
+    if (window.tempMarker) {
+        map.removeLayer(window.tempMarker);
+    }
+
+    // Find and update the existing marker
+    map.eachLayer((layer) => {
+        if (layer instanceof L.Marker) {
+            const markerLatLng = layer.getLatLng();
+            if (markerLatLng.lat === data.savedData.lat && 
+                markerLatLng.lng === data.savedData.lng) {
+                // Update popup content
+                layer.setPopupContent(createPopupContent(data.savedData));
+                if (layer.isPopupOpen()) {
+                    layer.openPopup();
+                }
+            }
+        }
+    });
+
+    // Show success notification
+    const notification = document.createElement('div');
+    notification.className = 'notification success';
+    notification.innerHTML = `
+        <i class="fa-solid fa-check"></i>
+        Rating saved successfully
     `;
     
-    document.body.appendChild(successPopup);
+    document.body.appendChild(notification);
     
+    // Trigger animation
+    setTimeout(() => notification.classList.add('show'), 10);
+    
+    // Remove after animation
     setTimeout(() => {
-        successPopup.remove();
-    }, 5000);
+        notification.classList.remove('show');
+        setTimeout(() => notification.remove(), 300);
+    }, 2000);
 }
 
 function showErrorPopup(data) {
-    const errorPopup = document.createElement('div');
-    errorPopup.style.position = 'fixed';
-    errorPopup.style.top = '50%';
-    errorPopup.style.left = '50%';
-    errorPopup.style.transform = 'translate(-50%, -50%)';
-    errorPopup.style.backgroundColor = '#f44336';
-    errorPopup.style.color = 'white';
-    errorPopup.style.padding = '20px';
-    errorPopup.style.borderRadius = '10px';
-    errorPopup.style.zIndex = '1000';
-    errorPopup.style.boxShadow = '0 0 10px rgba(0,0,0,0.5)';
-    
-    errorPopup.innerHTML = `
-        <h3>❌ Error Saving Café</h3>
-        <p>${data.error || 'Unknown error'}</p>
-        ${data.sqlError ? `<p>SQL Error: ${JSON.stringify(data.sqlError)}</p>` : ''}
+    const notification = document.createElement('div');
+    notification.className = 'notification error';
+    notification.innerHTML = `
+        <i class="fa-solid fa-xmark"></i>
+        ${data.error || 'Error saving rating'}
     `;
     
-    document.body.appendChild(errorPopup);
+    document.body.appendChild(notification);
     
+    // Trigger animation
+    setTimeout(() => notification.classList.add('show'), 10);
+    
+    // Remove after animation
     setTimeout(() => {
-        errorPopup.remove();
-    }, 5000);
+        notification.classList.remove('show');
+        setTimeout(() => notification.remove(), 300);
+    }, 2000);
 }
 
 // Add this function near your other helper functions
@@ -391,16 +472,18 @@ function loadExistingCafes() {
                     const cafeData = {
                         name: cafe.name,
                         address: cafe.address,
+                        lat: cafe.latitude,  // Add these for re-rating
+                        lng: cafe.longitude, // Add these for re-rating
+                        total_ratings: parseInt(cafe.total_ratings) || 1,
                         ratings: {
-                            wifi: parseInt(cafe.wifi_rating),
-                            power: parseInt(cafe.power_rating),
-                            quiet: parseInt(cafe.quiet_rating),
-                            coffee: parseInt(cafe.coffee_rating),
-                            food: parseInt(cafe.food_rating)
+                            wifi: Math.round(parseFloat(cafe.wifi_rating)) || 1,
+                            power: Math.round(parseFloat(cafe.power_rating)) || 1,
+                            quiet: Math.round(parseFloat(cafe.quiet_rating)) || 1,
+                            coffee: Math.round(parseFloat(cafe.coffee_rating)) || 1,
+                            food: Math.round(parseFloat(cafe.food_rating)) || 1
                         }
                     };
                     
-                    // Update marker creation
                     const marker = L.marker([cafe.latitude, cafe.longitude])
                         .bindPopup(createPopupContent(cafeData))
                         .addTo(map);
