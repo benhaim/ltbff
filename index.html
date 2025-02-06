@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laptop-Friendly Cafés Map</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script>
+        (g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.googleapis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})({
+            key: "AIzaSyDt52MjZ0kXMDMwRSckGnmkLkA73Q8MWUA",
+            v: "weekly"
+        });
+    </script>
+    <script>
+        async function initMap() {
+            const { Map } = await google.maps.importLibrary("maps");
+            const { Places } = await google.maps.importLibrary("places");
+            console.log("Maps and Places libraries loaded");
+            if (window.initializeMap) {
+                window.initializeMap();
+            }
+        }
+        initMap();
+    </script>
+</head>
+<body>
+    <div id="map"></div>
+    <button id="addCafeBtn" class="floating-button">+</button>
+
+    <div id="addCafeForm" class="form-container hidden">
+        <div class="form-content">
+            <h2>Add New Café</h2>
+            <form id="cafeForm">
+                <div class="search-container">
+                    <input 
+                        type="text" 
+                        id="cafeName" 
+                        placeholder="Search for a café..." 
+                        autocomplete="off"
+                        required
+                    >
+                </div>
+                
+                <div class="rating-group">
+                    <div class="rating-row">
+                        <span class="rating-label">WiFi</span>
+                        <div class="star-rating" data-rating="wifi"></div>
+                    </div>
+                    <div class="rating-row">
+                        <span class="rating-label">Power Outlets</span>
+                        <div class="star-rating" data-rating="power"></div>
+                    </div>
+                    <div class="rating-row">
+                        <span class="rating-label">Quietness</span>
+                        <div class="star-rating" data-rating="quiet"></div>
+                    </div>
+                    <div class="rating-row">
+                        <span class="rating-label">Coffee</span>
+                        <div class="star-rating" data-rating="coffee"></div>
+                    </div>
+                    <div class="rating-row">
+                        <span class="rating-label">Food</span>
+                        <div class="star-rating" data-rating="food"></div>
+                    </div>
+                </div>
+
+                <div class="form-buttons">
+                    <button type="submit">Add</button>
+                    <button type="button" id="cancelBtn">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="script.js?v=7&nocache=<?php echo uniqid(microtime()); ?>"></script>
+</body>
+</html>
