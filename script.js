@@ -63,67 +63,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initialize form submission
     if (cafeForm) {
-        cafeForm.onsubmit = function(e) {
-            e.preventDefault();
-            console.log('Form submitted!');
-            
-            // Get the selected place data
-            const selectedPlaceData = cafeForm.dataset.selectedPlace;
-            if (!selectedPlaceData) {
-                alert('Please select a place from the search results');
-                return;
-            }
-
-            const selectedPlace = JSON.parse(selectedPlaceData);
-            
-            // Get all ratings
-            const ratings = {};
-            document.querySelectorAll('.star-rating').forEach(container => {
-                const ratingType = container.dataset.rating;
-                ratings[ratingType] = parseInt(container.dataset.currentRating || 0);
-            });
-
-            const newCafe = {
-                name: selectedPlace.name,
-                lat: selectedPlace.lat,
-                lng: selectedPlace.lng,
-                address: selectedPlace.address,
-                ratings: ratings
-            };
-
-            console.log('Sending place data:', newCafe);
-
-            // Send to server
-            fetch('api/save_cafe.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(newCafe)
-            })
-            .then(response => response.json())
-            .then(data => {
-                console.log('Server response:', data);
-                if (data.success) {
-                    // Create success popup
-                    showSuccessPopup(data);
-                    
-                    // Add marker
-                    const marker = L.marker([newCafe.lat, newCafe.lng])
-                        .bindPopup(createPopupContent(newCafe))
-                        .addTo(map);
-                    
-                    // Close form
-                    cancelBtn.click();
-                } else {
-                    showErrorPopup(data);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Error adding café. Please try again.');
-            });
-        };
+        cafeForm.onsubmit = submitCafeForm;
     }
 });
 
@@ -374,9 +314,9 @@ function showDetailedRatings(cafe) {
                     <div class="rating-detail">
                         <div class="rating-header">
                             <i class="fa-solid ${categoryIcons[category]}"></i>
-                            <span class="category-name">${ratingLabels[category][rating-1]}</span>
+                            <span class="category-name">${ratingLabels[category][Math.round(rating)-1]}</span>
                         </div>
-                        <div class="rating-value rating-level-${rating}">
+                        <div class="rating-value rating-level-${Math.round(rating)}">
                             ${rating}/3
                         </div>
                     </div>
@@ -387,6 +327,10 @@ function showDetailedRatings(cafe) {
                 <i class="fa-solid fa-chart-simple"></i>
                 Based on ${cafe.total_ratings || 1} rating${cafe.total_ratings !== 1 ? 's' : ''}
             </div>
+
+            <button class="rate-btn">
+                <i class="fa-solid fa-star"></i> Rate This Place
+            </button>
         </div>
     `;
     
@@ -395,7 +339,12 @@ function showDetailedRatings(cafe) {
     // Add close button handler
     panel.querySelector('.close-btn').onclick = () => {
         panel.classList.add('slide-out');
-        setTimeout(() => panel.remove(), 300); // Match animation duration
+        setTimeout(() => panel.remove(), 300);
+    };
+
+    // Add rate button handler
+    panel.querySelector('.rate-btn').onclick = () => {
+        showRatingForm(cafe);
     };
 }
 
@@ -493,4 +442,84 @@ function loadExistingCafes() {
             }
         })
         .catch(error => console.error('Error:', error));
+}
+
+function submitCafeForm(event) {
+    event.preventDefault();
+    
+    // Get the selected place data
+    const selectedPlace = document.getElementById('cafeForm').dataset.selectedPlace;
+    if (!selectedPlace) {
+        alert('Please select a place first');
+        return;
+    }
+    
+    const placeData = JSON.parse(selectedPlace);
+    
+    // Collect ratings with defaults
+    const ratings = {
+        wifi: parseInt(document.querySelector('input[name="wifi"]:checked')?.value || "1"),
+        power: parseInt(document.querySelector('input[name="power"]:checked')?.value || "1"),
+        quiet: parseInt(document.querySelector('input[name="quiet"]:checked')?.value || "1"),
+        coffee: parseInt(document.querySelector('input[name="coffee"]:checked')?.value || "1"),
+        food: parseInt(document.querySelector('input[name="food"]:checked')?.value || "1")
+    };
+
+    console.log('Collected ratings:', ratings);
+
+    const data = {
+        name: placeData.name,
+        lat: placeData.lat,
+        lng: placeData.lng,
+        address: placeData.address,
+        ratings: ratings
+    };
+
+    console.log('Submitting data:', data);
+    
+    fetch('api/save_cafe.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showSuccessPopup(data);
+            // Close the form
+            const addCafeForm = document.getElementById('addCafeForm');
+            if (addCafeForm) {
+                addCafeForm.classList.add('hidden');
+                document.getElementById('cafeForm').reset();
+            }
+            
+            // Add or update marker on the map
+            if (data.savedData && data.savedData.lat && data.savedData.lng) {
+                const savedPlace = {
+                    name: data.savedData.name,
+                    lat: data.savedData.lat,
+                    lng: data.savedData.lng,
+                    address: data.savedData.address,
+                    ratings: data.savedData.ratings || ratings, // Use submitted ratings if saved ones not returned
+                    total_ratings: 1
+                };
+                
+                if (window.tempMarker) {
+                    map.removeLayer(window.tempMarker);
+                }
+                
+                const marker = L.marker([savedPlace.lat, savedPlace.lng])
+                    .bindPopup(createPopupContent(savedPlace))
+                    .addTo(map);
+            }
+        } else {
+            showErrorPopup(data);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showErrorPopup({error: 'Failed to save place'});
+    });
 }
