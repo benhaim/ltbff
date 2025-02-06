@@ -488,6 +488,7 @@ function submitCafeForm(event) {
     .then(data => {
         if (data.success) {
             showSuccessPopup(data);
+            
             // Close the form
             const addCafeForm = document.getElementById('addCafeForm');
             if (addCafeForm) {
@@ -495,24 +496,50 @@ function submitCafeForm(event) {
                 document.getElementById('cafeForm').reset();
             }
             
-            // Add or update marker on the map
+            // Update or add marker
             if (data.savedData && data.savedData.lat && data.savedData.lng) {
                 const savedPlace = {
                     name: data.savedData.name,
                     lat: data.savedData.lat,
                     lng: data.savedData.lng,
                     address: data.savedData.address,
-                    ratings: data.savedData.ratings || ratings, // Use submitted ratings if saved ones not returned
-                    total_ratings: 1
+                    ratings: data.savedData.ratings || ratings,
+                    total_ratings: data.isNewPlace ? 1 : (data.savedData.total_ratings || 1)
                 };
                 
+                // Remove temp marker if exists
                 if (window.tempMarker) {
                     map.removeLayer(window.tempMarker);
                 }
                 
-                const marker = L.marker([savedPlace.lat, savedPlace.lng])
-                    .bindPopup(createPopupContent(savedPlace))
-                    .addTo(map);
+                // Update existing marker if found
+                let markerUpdated = false;
+                map.eachLayer((layer) => {
+                    if (layer instanceof L.Marker) {
+                        const markerLatLng = layer.getLatLng();
+                        if (markerLatLng.lat === savedPlace.lat && 
+                            markerLatLng.lng === savedPlace.lng) {
+                            layer.setPopupContent(createPopupContent(savedPlace));
+                            if (layer.isPopupOpen()) {
+                                layer.openPopup();
+                            }
+                            markerUpdated = true;
+                            
+                            // Update details panel if open
+                            const detailsPanel = document.querySelector('.details-panel');
+                            if (detailsPanel) {
+                                showDetailedRatings(savedPlace);
+                            }
+                        }
+                    }
+                });
+                
+                // Add new marker if not updating
+                if (!markerUpdated) {
+                    const marker = L.marker([savedPlace.lat, savedPlace.lng])
+                        .bindPopup(createPopupContent(savedPlace))
+                        .addTo(map);
+                }
             }
         } else {
             showErrorPopup(data);
@@ -522,4 +549,44 @@ function submitCafeForm(event) {
         console.error('Error:', error);
         showErrorPopup({error: 'Failed to save place'});
     });
+}
+
+function showRatingForm(cafe = null) {
+    const addCafeForm = document.getElementById('addCafeForm');
+    const cafeForm = document.getElementById('cafeForm');
+    const formTitle = addCafeForm.querySelector('h2');
+    const searchContainer = addCafeForm.querySelector('.search-container');
+    const searchInput = document.getElementById('cafeName');
+
+    // Update form appearance based on whether we're rating existing or adding new
+    if (cafe) {
+        formTitle.textContent = `Rate ${cafe.name}`;
+        searchContainer.style.display = 'none';
+        searchInput.removeAttribute('required');  // Remove required attribute
+        searchInput.disabled = true;             // Disable the input
+        // Store the cafe data for submission
+        cafeForm.dataset.selectedPlace = JSON.stringify({
+            name: cafe.name,
+            lat: cafe.lat,
+            lng: cafe.lng,
+            address: cafe.address
+        });
+    } else {
+        formTitle.textContent = 'Add New Place';
+        searchContainer.style.display = 'block';
+        searchInput.setAttribute('required', ''); // Add required attribute
+        searchInput.disabled = false;            // Enable the input
+        cafeForm.dataset.selectedPlace = '';
+    }
+
+    // Reset form and show it
+    cafeForm.reset();
+    addCafeForm.classList.remove('hidden');
+    addCafeForm.classList.add('visible');
+
+    // Close any existing details panel
+    const existingPanel = document.querySelector('.details-panel');
+    if (existingPanel) {
+        existingPanel.remove();
+    }
 }
