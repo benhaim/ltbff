@@ -1,11 +1,13 @@
-console.log('=== MAPBOX VERSION 7 ===');
-console.log('Script loaded at:', new Date().toISOString());
- 
-// First, declare variables we'll need globally (only once)
-let map;
-const cafes = [];
+console.log('Script loading...');
 
-// Add this near the top with other global variables
+// Global variables
+let map;
+let service;
+let infoWindow;
+let autocomplete;
+let selectedPlace = null;
+
+// Keep the same rating labels and icons from the original version
 const ratingLabels = {
     wifi: ['Basic', 'Fast', 'Rocket 🚀'],
     power: ['Rare', 'Available', 'Abundant'],
@@ -22,29 +24,128 @@ const categoryIcons = {
     food: 'fa-utensils'
 };
 
-// Wait for DOM to be fully loaded
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM loaded, initializing elements');
+// Main initialization function
+function initMap() {
+    console.log('Initializing map...');
     
-    // Get DOM elements
+    // Default to Chiang Mai coordinates
+    const defaultLocation = { lat: 18.7883, lng: 98.9853 };
+    
+    try {
+        // Create the map with custom styling
+        map = new google.maps.Map(document.getElementById("map"), {
+            zoom: 15,
+            center: defaultLocation,
+            mapTypeControl: false,
+            streetViewControl: false,
+            fullscreenControl: false,
+            mapId: 'd798b01898fb267b',
+            gestureHandling: 'greedy',
+            zoomControl: false,
+            locationButton: true,
+            controlSize: 32,
+            mapTypeControlOptions: {
+                position: google.maps.ControlPosition.TOP_RIGHT
+            },
+            zoomControlOptions: {
+                position: google.maps.ControlPosition.RIGHT_CENTER
+            }
+        });
+
+        // Create InfoWindow for markers
+        infoWindow = new google.maps.InfoWindow({
+            pixelOffset: new google.maps.Size(0, -5),  // Adjust the vertical offset
+            disableAutoPan: true
+        });
+
+        // Add this right after creating the InfoWindow
+        google.maps.event.addListener(infoWindow, 'domready', () => {
+            // Hide close button after InfoWindow is ready
+            const closeButtons = document.querySelectorAll('.gm-ui-hover-effect');
+            closeButtons.forEach(button => {
+                button.style.display = 'none';
+            });
+        });
+
+        // Initialize Places Service
+        service = new google.maps.places.PlacesService(map);
+
+        // Load existing cafes
+        loadExistingCafes();
+
+        // Try to get user's location
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const pos = {
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude,
+                    };
+                    console.log('Got user location:', pos);
+                    map.setCenter(pos);
+                    // Temporarily disable places search
+                    // searchNearbyCafes(pos);
+                },
+                () => {
+                    console.log('Geolocation failed, using default location');
+                    // Temporarily disable places search
+                    // searchNearbyCafes(defaultLocation);
+                }
+            );
+        } else {
+            console.log('Geolocation not available, using default location');
+            // Temporarily disable places search
+            // searchNearbyCafes(defaultLocation);
+        }
+
+        // Initialize UI elements
+        initializeUI();
+        
+    } catch (error) {
+        console.error('Error initializing map:', error);
+    }
+}
+
+// Initialize UI elements
+function initializeUI() {
+    // Add location button handler
+    const locationBtn = document.getElementById('locationBtn');
+    if (locationBtn) {
+        locationBtn.addEventListener('click', () => {
+            if (navigator.geolocation) {
+                locationBtn.classList.add('loading');
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const pos = {
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude,
+                        };
+                        map.setCenter(pos);
+                        locationBtn.classList.remove('loading');
+                    },
+                    () => {
+                        locationBtn.classList.remove('loading');
+                        alert('Could not get your location');
+                    }
+                );
+            }
+        });
+    }
+
+    // Add Cafe button and form handlers
     const addCafeBtn = document.getElementById('addCafeBtn');
     const addCafeForm = document.getElementById('addCafeForm');
     const cafeForm = document.getElementById('cafeForm');
     const cancelBtn = document.getElementById('cancelBtn');
 
-    console.log('Elements found:', {
-        addCafeBtn: !!addCafeBtn,
-        addCafeForm: !!addCafeForm,
-        cafeForm: !!cafeForm,
-        cancelBtn: !!cancelBtn
-    });
-
     // Initialize form controls
     if (addCafeBtn && addCafeForm) {
         addCafeBtn.addEventListener('click', () => {
-            console.log('Add button clicked');
+            console.log('Add button clicked, showing form');
             addCafeForm.classList.remove('hidden');
             addCafeForm.classList.add('visible');
+            console.log('Form visible, initializing autocomplete...');
+            initializeAutocomplete();
         });
     }
 
@@ -58,253 +159,245 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Initialize star ratings
-    initializeStarRatings();
-
     // Initialize form submission
     if (cafeForm) {
+        generateRatingGroups();
         cafeForm.onsubmit = submitCafeForm;
     }
-});
-
-// This function will be called when libraries are loaded
-window.initializeMap = function() {
-    console.log('Initializing map...');
-    
-    try {
-        // Initialize the map
-        map = L.map('map');
-        console.log('Map object created');
-
-        L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token={accessToken}', {
-            attribution: '© <a href="https://www.mapbox.com/about/maps/">Mapbox</a>',
-            id: 'mapbox/light-v10',  // Clean, minimal style
-            tileSize: 512,
-            zoomOffset: -1,
-            accessToken: 'pk.eyJ1IjoiYmVuaGFpbSIsImEiOiJjbTZzOG5zcG0wNWs0MmtwbXczdzNoa2VyIn0.jrguuuUfDMXs9vbMTk7kKg'
-        }).addTo(map);
-        console.log('Tile layer added');
-
-        // Get user's location and center map
-        if ("geolocation" in navigator) {
-            console.log('Getting user location...');
-            navigator.geolocation.getCurrentPosition(
-                position => {
-                    const { latitude, longitude } = position.coords;
-                    console.log('User location:', latitude, longitude);
-                    map.setView([latitude, longitude], 15);
-                },
-                error => {
-                    console.log('Geolocation error:', error);
-                    // Default to Chiang Mai if geolocation fails
-                    map.setView([18.7883, 98.9853], 15);
-                }
-            );
-        } else {
-            console.log('Geolocation not available');
-            map.setView([18.7883, 98.9853], 15);
-        }
-
-        console.log('Map initialization complete');
-        
-        // Load existing cafes after map is initialized
-        loadExistingCafes();
-        
-        // Initialize autocomplete after map is ready
-        initAutocomplete();
-    } catch (error) {
-        console.error('Error initializing map:', error);
-    }
-};
-
-// Initialize star ratings
-function initializeStarRatings() {
-    document.querySelectorAll('.star-rating').forEach(container => {
-        // Clear existing stars first
-        container.innerHTML = '';
-        
-        // Add 3 stars instead of 5
-        for (let i = 1; i <= 3; i++) {
-            const star = document.createElement('span');
-            star.className = 'star';
-            star.innerHTML = '☆';
-            star.dataset.value = i;
-            
-            star.onclick = function() {
-                const stars = this.parentElement.children;
-                let rating = this.dataset.value;
-                
-                // Update stars display
-                Array.from(stars).forEach(s => {
-                    s.innerHTML = s.dataset.value <= rating ? '★' : '☆';
-                    s.classList.toggle('active', s.dataset.value <= rating);
-                });
-                
-                // Store rating value
-                this.parentElement.dataset.currentRating = rating;
-            };
-            
-            container.appendChild(star);
-        }
-    });
 }
 
-function initAutocomplete() {
-    console.log('Initializing autocomplete...');
-    const input = document.getElementById('cafeName');
-    console.log('Input element:', input);
+// Add these functions that were in the original version
+function generateRatingGroups() {
+    const container = document.querySelector('.ratings-container');
+    if (container) {
+        console.log('Generating rating groups...');
+        container.innerHTML = ''; // Clear existing content
+
+        Object.keys(ratingLabels).forEach(category => {
+            const group = document.createElement('div');
+            group.className = 'rating-group';
+            group.innerHTML = `
+                <i class="fa-solid ${categoryIcons[category]}"></i>
+                <div class="rating-options" data-rating="${category}">
+                    ${ratingLabels[category].map((label, index) => `
+                        <label class="rating-option">
+                            <input type="radio" name="${category}" value="${index + 1}">
+                            <span class="rating-label">${label}</span>
+                        </label>
+                    `).join('')}
+                </div>
+            `;
+            container.appendChild(group);
+        });
+
+        // Add info icon
+        const infoIcon = document.createElement('div');
+        infoIcon.className = 'info-icon';
+        infoIcon.innerHTML = `<i class="fa-solid fa-info-circle"></i>`;
+        infoIcon.addEventListener('click', () => {
+            alert('WiFi: Rate the quality of WiFi\nPower: Rate the availability of power outlets\nQuiet: Rate the quietness of the place\nCoffee: Rate the quality of coffee\nFood: Rate the food options available');
+        });
+        container.appendChild(infoIcon);
+    } else {
+        console.error('Ratings container not found');
+    }
+}
+
+// Add this function to handle form submission
+function submitCafeForm(event) {
+    event.preventDefault();
     
-    if (!window.google || !google.maps || !google.maps.places) {
-        console.error('Google Places API not loaded');
+    if (!selectedPlace) {
+        alert('Please select a place from the suggestions');
         return;
     }
 
-    try {
-        const service = new google.maps.places.PlacesService(document.createElement('div'));
-        let searchTimeout;
-        let resultsContainer;
-
-        // Create results container if it doesn't exist
-        if (!document.querySelector('.search-results')) {
-            resultsContainer = document.createElement('div');
-            resultsContainer.className = 'search-results';
-            input.parentNode.appendChild(resultsContainer);
-        } else {
-            resultsContainer = document.querySelector('.search-results');
-        }
-
-        input.addEventListener('input', function() {
-            const searchText = this.value;
-            console.log('Search text:', searchText);
-
-            if (searchTimeout) {
-                clearTimeout(searchTimeout);
-            }
-
-            if (!searchText || searchText.length < 2) {
-                resultsContainer.style.display = 'none';
-                return;
-            }
-
-            searchTimeout = setTimeout(() => {
-                const location = map.getCenter();
-                
-                const request = {
-                    query: searchText,
-                    location: new google.maps.LatLng(location.lat, location.lng),
-                    radius: 10000
-                };
-
-                service.textSearch(request, (results, status) => {
-                    console.log('Search status:', status);
-                    console.log('Results:', results);
-
-                    if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-                        showResults(results, resultsContainer);
-                    } else {
-                        resultsContainer.innerHTML = '<div class="search-result-item">No results found</div>';
-                        resultsContainer.style.display = 'block';
-                    }
-                });
-            }, 300);
-        });
-
-        function showResults(places, container) {
-            container.innerHTML = '';
-            container.style.display = 'block';
-
-            places.slice(0, 5).forEach(place => {
-                const div = document.createElement('div');
-                div.className = 'search-result-item';
-                
-                div.innerHTML = `
-                    <div class="place-name">${place.name}</div>
-                    <div class="place-address">${place.formatted_address || ''}</div>
-                `;
-                
-                div.onclick = () => {
-                    input.value = place.name;
-                    container.style.display = 'none';
-
-                    const selectedPlace = {
-                        name: place.name,
-                        lat: place.geometry.location.lat(),
-                        lng: place.geometry.location.lng(),
-                        address: place.formatted_address
-                    };
-
-                    document.getElementById('cafeForm').dataset.selectedPlace = JSON.stringify(selectedPlace);
-                    
-                    // Center map on selected place
-                    map.setView([selectedPlace.lat, selectedPlace.lng], 18);
-
-                    // Add temporary marker
-                    if (window.tempMarker) {
-                        map.removeLayer(window.tempMarker);
-                    }
-                    window.tempMarker = L.marker([selectedPlace.lat, selectedPlace.lng])
-                        .addTo(map)
-                        .bindPopup(selectedPlace.name)
-                        .openPopup();
-                };
-
-                container.appendChild(div);
-            });
-        }
-
-        // Close results when clicking outside
-        document.addEventListener('click', function(e) {
-            if (!input.contains(e.target) && !resultsContainer.contains(e.target)) {
-                resultsContainer.style.display = 'none';
-            }
-        });
-
-    } catch (error) {
-        console.error('Error initializing search:', error);
-        console.error('Error details:', error.message);
+    if (!validateForm()) {
+        alert('Please fill out all ratings before submitting.');
+        return;
     }
+
+    // Get all the ratings
+    const ratings = {};
+    const requiredFields = ['wifi', 'power', 'quiet', 'coffee', 'food'];
+    requiredFields.forEach(field => {
+        const selectedOption = document.querySelector(`input[name="${field}"]:checked`);
+        ratings[field] = selectedOption.value;
+    });
+
+    const data = {
+        name: selectedPlace.name,
+        lat: selectedPlace.lat,
+        lng: selectedPlace.lng,
+        address: selectedPlace.address,
+        ratings: ratings
+    };
+
+    console.log('Submitting data:', data);
+    
+    fetch('api/save_cafe.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('success', 'Rating saved successfully');
+            
+            // Close and reset the form
+            const addCafeForm = document.getElementById('addCafeForm');
+            const cafeForm = document.getElementById('cafeForm');
+            if (addCafeForm) {
+                addCafeForm.classList.add('hidden');
+                addCafeForm.classList.remove('visible');
+                cafeForm.reset();
+                delete cafeForm.dataset.selectedPlace;
+                
+                // Re-enable and show search if it was hidden
+                const searchInput = document.getElementById('cafeName');
+                const searchContainer = addCafeForm.querySelector('.search-container');
+                searchInput.disabled = false;
+                searchInput.value = '';
+                searchContainer.style.display = 'block';
+            }
+            
+            // Update or add marker
+            if (data.savedData && data.savedData.lat && data.savedData.lng) {
+                const savedPlace = {
+                    name: data.savedData.name,
+                    lat: data.savedData.lat,
+                    lng: data.savedData.lng,
+                    address: data.savedData.address,
+                    ratings: data.savedData.ratings || ratings,
+                    total_ratings: data.isNewPlace ? 1 : (data.savedData.total_ratings || 1)
+                };
+                
+                createRatedCafeMarker(savedPlace);
+            }
+        } else {
+            showNotification('error', data.error || 'Error saving rating');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showErrorPopup({error: 'Failed to save place'});
+    });
 }
 
-function createPopupContent(cafe) {
-    const popupContent = document.createElement('div');
-    popupContent.className = 'popup-content';
-    
-    popupContent.innerHTML = `
-        <h3>${cafe.name}</h3>
-        <div class="quick-ratings">
-            ${Object.entries(cafe.ratings).map(([category, rating]) => `
-                <div class="rating-item" title="${category}">
-                    <i class="fa-solid ${categoryIcons[category]}"></i>
-                    <span class="rating-value rating-level-${rating}">${rating}/3</span>
+// Add this function to load existing cafes
+function loadExistingCafes() {
+    console.log('Loading existing cafés...');
+    fetch('api/get_cafes.php')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('Loaded cafés:', data.cafes.length);
+                data.cafes.forEach(async cafe => {  // Make this async
+                    const cafeData = {
+                        name: cafe.name,
+                        address: cafe.address,
+                        lat: parseFloat(cafe.latitude),
+                        lng: parseFloat(cafe.longitude),
+                        total_ratings: parseInt(cafe.total_ratings) || 1,
+                        ratings: {
+                            wifi: Math.round(parseFloat(cafe.wifi_rating)) || 1,
+                            power: Math.round(parseFloat(cafe.power_rating)) || 1,
+                            quiet: Math.round(parseFloat(cafe.quiet_rating)) || 1,
+                            coffee: Math.round(parseFloat(cafe.coffee_rating)) || 1,
+                            food: Math.round(parseFloat(cafe.food_rating)) || 1
+                        }
+                    };
+                    
+                    await createRatedCafeMarker(cafeData);  // Wait for marker creation
+                });
+            } else {
+                console.error('Error loading cafés:', data.error);
+            }
+        })
+        .catch(error => console.error('Error:', error));
+}
+
+// Add this function to create markers for our rated cafes
+async function createRatedCafeMarker(cafe) {
+    // Import the marker library
+    const { AdvancedMarkerElement, PinElement } = await google.maps.importLibrary("marker");
+
+    // Create a custom pin element
+    const pinElement = new PinElement({
+        background: "#4CAF50",
+        borderColor: "#3d8b40",
+        glyphColor: "white",
+        scale: 1.2
+    });
+
+    // Create the marker
+    const marker = new AdvancedMarkerElement({
+        map,
+        position: { lat: cafe.lat, lng: cafe.lng },
+        title: cafe.name,
+        content: pinElement.element
+    });
+
+    // Add click listener
+    marker.addListener('click', () => {
+        const content = `
+            <div class="popup-content">
+                <h3>${cafe.name}</h3>
+                <div class="quick-ratings">
+                    ${Object.entries(cafe.ratings).map(([category, rating]) => `
+                        <div class="rating-item" title="${category}">
+                            <i class="fa-solid ${categoryIcons[category]}"></i>
+                            <span class="rating-value rating-level-${rating}">${rating}/3</span>
+                        </div>
+                    `).join('')}
                 </div>
-            `).join('')}
-        </div>
-        <button class="details-btn">
-            <i class="fa-solid fa-circle-info"></i> More Details
-        </button>
-    `;
-    
-    // Add click handler to the button
-    const detailsBtn = popupContent.querySelector('.details-btn');
-    detailsBtn.addEventListener('click', () => showDetailedRatings(cafe));
-    
-    return popupContent;
+                <button class="details-btn">
+                    <i class="fa-solid fa-circle-info"></i> More Details
+                </button>
+            </div>
+        `;
+
+        infoWindow.setContent(content);
+        infoWindow.open(map, marker);
+
+        // Add click handler for details button after infoWindow is opened
+        setTimeout(() => {
+            const detailsBtn = document.querySelector('.details-btn');
+            if (detailsBtn) {
+                detailsBtn.addEventListener('click', () => {
+                    showDetailedRatings(cafe);
+                });
+            }
+        }, 100);
+    });
 }
 
-// Separate detailed view in a side panel
+// Add this function to show detailed ratings
 function showDetailedRatings(cafe) {
+    console.log('Showing detailed ratings for:', cafe);
+    
     // Remove any existing panel first
     const existingPanel = document.querySelector('.details-panel');
-    if (existingPanel) existingPanel.remove();
+    if (existingPanel) {
+        existingPanel.remove();
+    }
 
+    // Create overlay for outside clicks
+    const overlay = document.createElement('div');
+    overlay.className = 'panel-overlay';
+    
     const panel = document.createElement('div');
     panel.className = 'details-panel';
+    
     panel.innerHTML = `
         <div class="panel-header">
-            <h2>${cafe.name}</h2>
-            <button class="close-btn">
-                <i class="fa-solid fa-xmark"></i>
+            <button class="back-btn">
+                <i class="fa-solid fa-chevron-right"></i>
             </button>
+            <h2>${cafe.name}</h2>
         </div>
         <div class="panel-content">
             <p class="cafe-address">${cafe.address || 'No address provided'}</p>
@@ -314,7 +407,7 @@ function showDetailedRatings(cafe) {
                     <div class="rating-detail">
                         <div class="rating-header">
                             <i class="fa-solid ${categoryIcons[category]}"></i>
-                            <span class="category-name">${ratingLabels[category][Math.round(rating)-1]}</span>
+                            <span class="category-name">${category}: ${ratingLabels[category][Math.round(rating)-1]}</span>
                         </div>
                         <div class="rating-value rating-level-${Math.round(rating)}">
                             ${rating}/3
@@ -334,221 +427,127 @@ function showDetailedRatings(cafe) {
         </div>
     `;
     
+    // Add to DOM
+    document.body.appendChild(overlay);
     document.body.appendChild(panel);
     
-    // Add close button handler
-    panel.querySelector('.close-btn').onclick = () => {
+    function closePanel() {
         panel.classList.add('slide-out');
-        setTimeout(() => panel.remove(), 300);
-    };
-
+        overlay.classList.add('fade-out');
+        setTimeout(() => {
+            panel.remove();
+            overlay.remove();
+        }, 300);
+    }
+    
+    // Close handlers
+    overlay.addEventListener('click', closePanel);
+    panel.querySelector('.back-btn').addEventListener('click', closePanel);
+    
     // Add rate button handler
     panel.querySelector('.rate-btn').onclick = () => {
         showRatingForm(cafe);
     };
+
+    // Force a reflow to trigger animation
+    panel.offsetHeight;
+    overlay.offsetHeight;
+    panel.style.transform = 'translateX(0)';
+    overlay.style.opacity = '1';
 }
 
-function showSuccessPopup(data) {
-    // Update the marker's popup content for the rated place
-    if (window.tempMarker) {
-        map.removeLayer(window.tempMarker);
-    }
+// Update the initializeAutocomplete function
+async function initializeAutocomplete() {
+    console.log('Initializing autocomplete...');
+    const input = document.getElementById('cafeName');
+    
+    if (!input) return;
+    
+    try {
+        let searchTimeout;
+        let resultsContainer;
 
-    // Find and update the existing marker
-    map.eachLayer((layer) => {
-        if (layer instanceof L.Marker) {
-            const markerLatLng = layer.getLatLng();
-            if (markerLatLng.lat === data.savedData.lat && 
-                markerLatLng.lng === data.savedData.lng) {
-                // Update popup content
-                layer.setPopupContent(createPopupContent(data.savedData));
-                if (layer.isPopupOpen()) {
-                    layer.openPopup();
-                }
-            }
+        // Create results container if it doesn't exist
+        if (!document.querySelector('.search-results')) {
+            resultsContainer = document.createElement('div');
+            resultsContainer.className = 'search-results';
+            input.parentNode.appendChild(resultsContainer);
+        } else {
+            resultsContainer = document.querySelector('.search-results');
         }
-    });
 
-    // Show success notification
-    const notification = document.createElement('div');
-    notification.className = 'notification success';
-    notification.innerHTML = `
-        <i class="fa-solid fa-check"></i>
-        Rating saved successfully
-    `;
-    
-    document.body.appendChild(notification);
-    
-    // Trigger animation
-    setTimeout(() => notification.classList.add('show'), 10);
-    
-    // Remove after animation
-    setTimeout(() => {
-        notification.classList.remove('show');
-        setTimeout(() => notification.remove(), 300);
-    }, 2000);
-}
+        input.addEventListener('input', function() {
+            const searchText = this.value;
 
-function showErrorPopup(data) {
-    const notification = document.createElement('div');
-    notification.className = 'notification error';
-    notification.innerHTML = `
-        <i class="fa-solid fa-xmark"></i>
-        ${data.error || 'Error saving rating'}
-    `;
-    
-    document.body.appendChild(notification);
-    
-    // Trigger animation
-    setTimeout(() => notification.classList.add('show'), 10);
-    
-    // Remove after animation
-    setTimeout(() => {
-        notification.classList.remove('show');
-        setTimeout(() => notification.remove(), 300);
-    }, 2000);
-}
-
-// Add this function near your other helper functions
-function loadExistingCafes() {
-    console.log('Loading existing cafés...');
-    fetch('api/get_cafes.php')
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                console.log('Loaded cafés:', data.cafes.length);
-                data.cafes.forEach(cafe => {
-                    const cafeData = {
-                        name: cafe.name,
-                        address: cafe.address,
-                        lat: cafe.latitude,  // Add these for re-rating
-                        lng: cafe.longitude, // Add these for re-rating
-                        total_ratings: parseInt(cafe.total_ratings) || 1,
-                        ratings: {
-                            wifi: Math.round(parseFloat(cafe.wifi_rating)) || 1,
-                            power: Math.round(parseFloat(cafe.power_rating)) || 1,
-                            quiet: Math.round(parseFloat(cafe.quiet_rating)) || 1,
-                            coffee: Math.round(parseFloat(cafe.coffee_rating)) || 1,
-                            food: Math.round(parseFloat(cafe.food_rating)) || 1
-                        }
-                    };
-                    
-                    const marker = L.marker([cafe.latitude, cafe.longitude])
-                        .bindPopup(createPopupContent(cafeData))
-                        .addTo(map);
-                });
-            } else {
-                console.error('Error loading cafés:', data.error);
+            if (searchTimeout) {
+                clearTimeout(searchTimeout);
             }
-        })
-        .catch(error => console.error('Error:', error));
-}
 
-function submitCafeForm(event) {
-    event.preventDefault();
-    
-    // Get the selected place data
-    const selectedPlace = document.getElementById('cafeForm').dataset.selectedPlace;
-    if (!selectedPlace) {
-        alert('Please select a place first');
-        return;
-    }
-    
-    const placeData = JSON.parse(selectedPlace);
-    
-    // Collect ratings with defaults
-    const ratings = {
-        wifi: parseInt(document.querySelector('input[name="wifi"]:checked')?.value || "1"),
-        power: parseInt(document.querySelector('input[name="power"]:checked')?.value || "1"),
-        quiet: parseInt(document.querySelector('input[name="quiet"]:checked')?.value || "1"),
-        coffee: parseInt(document.querySelector('input[name="coffee"]:checked')?.value || "1"),
-        food: parseInt(document.querySelector('input[name="food"]:checked')?.value || "1")
-    };
-
-    console.log('Collected ratings:', ratings);
-
-    const data = {
-        name: placeData.name,
-        lat: placeData.lat,
-        lng: placeData.lng,
-        address: placeData.address,
-        ratings: ratings
-    };
-
-    console.log('Submitting data:', data);
-    
-    fetch('api/save_cafe.php', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data)
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showSuccessPopup(data);
-            
-            // Close the form
-            const addCafeForm = document.getElementById('addCafeForm');
-            if (addCafeForm) {
-                addCafeForm.classList.add('hidden');
-                document.getElementById('cafeForm').reset();
+            if (!searchText || searchText.length < 2) {
+                resultsContainer.style.display = 'none';
+                return;
             }
-            
-            // Update or add marker
-            if (data.savedData && data.savedData.lat && data.savedData.lng) {
-                const savedPlace = {
-                    name: data.savedData.name,
-                    lat: data.savedData.lat,
-                    lng: data.savedData.lng,
-                    address: data.savedData.address,
-                    ratings: data.savedData.ratings || ratings,
-                    total_ratings: data.isNewPlace ? 1 : (data.savedData.total_ratings || 1)
+
+            searchTimeout = setTimeout(() => {
+                const request = {
+                    query: searchText,
+                    bounds: map.getBounds()
                 };
-                
-                // Remove temp marker if exists
-                if (window.tempMarker) {
-                    map.removeLayer(window.tempMarker);
-                }
-                
-                // Update existing marker if found
-                let markerUpdated = false;
-                map.eachLayer((layer) => {
-                    if (layer instanceof L.Marker) {
-                        const markerLatLng = layer.getLatLng();
-                        if (markerLatLng.lat === savedPlace.lat && 
-                            markerLatLng.lng === savedPlace.lng) {
-                            layer.setPopupContent(createPopupContent(savedPlace));
-                            if (layer.isPopupOpen()) {
-                                layer.openPopup();
-                            }
-                            markerUpdated = true;
-                            
-                            // Update details panel if open
-                            const detailsPanel = document.querySelector('.details-panel');
-                            if (detailsPanel) {
-                                showDetailedRatings(savedPlace);
-                            }
-                        }
+
+                service.textSearch(request, (results, status) => {
+                    if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+                        showResults(results.slice(0, 5), resultsContainer);
+                    } else {
+                        resultsContainer.innerHTML = '<div class="search-result-item">No results found</div>';
+                        resultsContainer.style.display = 'block';
                     }
                 });
+            }, 300);
+        });
+
+        function showResults(places, container) {
+            container.innerHTML = '';
+            container.style.display = 'block';
+
+            places.forEach(place => {
+                const div = document.createElement('div');
+                div.className = 'search-result-item';
                 
-                // Add new marker if not updating
-                if (!markerUpdated) {
-                    const marker = L.marker([savedPlace.lat, savedPlace.lng])
-                        .bindPopup(createPopupContent(savedPlace))
-                        .addTo(map);
-                }
-            }
-        } else {
-            showErrorPopup(data);
+                div.innerHTML = `
+                    <div class="place-name">${place.name}</div>
+                    <div class="place-address">${place.formatted_address || ''}</div>
+                `;
+                
+                div.onclick = () => {
+                    input.value = place.name;
+                    container.style.display = 'none';
+
+                    selectedPlace = {
+                        name: place.name,
+                        lat: place.geometry.location.lat(),
+                        lng: place.geometry.location.lng(),
+                        address: place.formatted_address
+                    };
+
+                    // Center map on selected place
+                    map.setCenter(selectedPlace);
+                    map.setZoom(17);
+                };
+
+                container.appendChild(div);
+            });
         }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        showErrorPopup({error: 'Failed to save place'});
-    });
+
+        // Close results when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!input.contains(e.target) && !resultsContainer.contains(e.target)) {
+                resultsContainer.style.display = 'none';
+            }
+        });
+
+    } catch (error) {
+        console.error('Error initializing search:', error);
+    }
 }
 
 function showRatingForm(cafe = null) {
@@ -558,29 +557,32 @@ function showRatingForm(cafe = null) {
     const searchContainer = addCafeForm.querySelector('.search-container');
     const searchInput = document.getElementById('cafeName');
 
+    // Reset form state completely
+    cafeForm.reset();
+    searchInput.value = '';
+    
     // Update form appearance based on whether we're rating existing or adding new
     if (cafe) {
         formTitle.textContent = `Rate ${cafe.name}`;
         searchContainer.style.display = 'none';
-        searchInput.removeAttribute('required');  // Remove required attribute
-        searchInput.disabled = true;             // Disable the input
+        searchInput.removeAttribute('required');
+        searchInput.disabled = true;
         // Store the cafe data for submission
-        cafeForm.dataset.selectedPlace = JSON.stringify({
+        selectedPlace = {
             name: cafe.name,
             lat: cafe.lat,
             lng: cafe.lng,
             address: cafe.address
-        });
+        };
     } else {
         formTitle.textContent = 'Add New Place';
         searchContainer.style.display = 'block';
-        searchInput.setAttribute('required', ''); // Add required attribute
-        searchInput.disabled = false;            // Enable the input
-        cafeForm.dataset.selectedPlace = '';
+        searchInput.setAttribute('required', '');
+        searchInput.disabled = false;
+        selectedPlace = null;
     }
 
-    // Reset form and show it
-    cafeForm.reset();
+    // Show the form
     addCafeForm.classList.remove('hidden');
     addCafeForm.classList.add('visible');
 
@@ -589,4 +591,22 @@ function showRatingForm(cafe = null) {
     if (existingPanel) {
         existingPanel.remove();
     }
+    
+    // Remove any existing panel overlay
+    const existingOverlay = document.querySelector('.panel-overlay');
+    if (existingOverlay) {
+        existingOverlay.remove();
+    }
+}
+
+// Add validation function
+function validateForm() {
+    const requiredFields = ['wifi', 'power', 'quiet', 'coffee', 'food'];
+    for (const field of requiredFields) {
+        const selectedOption = document.querySelector(`input[name="${field}"]:checked`);
+        if (!selectedOption) {
+            return false; // If any field is not filled, return false
+        }
+    }
+    return true; // All fields are filled
 }
