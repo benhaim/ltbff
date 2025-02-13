@@ -19,26 +19,28 @@
     <button id="locationBtn" class="location-btn" title="Center on my location">
         <i class="fa-solid fa-location-crosshairs"></i>
     </button>
-    <button id="addCafeBtn" class="add-cafe-btn">
-        <i class="fa-solid fa-plus"></i>
-    </button>
+
+    <div id="searchBox" class="search-box">
+        <div class="search-input-container">
+            <input 
+                type="text" 
+                id="cafeName" 
+                name="cafeName"
+                placeholder="Search for a place..." 
+                autocomplete="off"
+                role="combobox"
+                aria-autocomplete="list"
+            >
+            <button class="clear-button">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+    </div>
 
     <div id="addCafeForm" class="form-overlay hidden">
         <div class="form-container">
             <h2>Add New Place</h2>
             <form id="cafeForm" class="compact-form">
-                <div class="search-container">
-                    <input 
-                        type="text" 
-                        id="cafeName" 
-                        name="cafeName"
-                        placeholder="Search for a place..." 
-                        autocomplete="off"
-                        role="combobox"
-                        aria-autocomplete="list"
-                    >
-                </div>
-
                 <div class="ratings-container">
                     <!-- Rating groups will be generated here -->
                 </div>
