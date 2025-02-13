@@ -25,17 +25,38 @@ const categoryIcons = {
 };
 
 // Main initialization function
-function initMap() {
+async function initMap() {
     console.log('Initializing map...');
     
-    // Default to Chiang Mai coordinates
+    // Default to Chiang Mai coordinates (only used if geolocation fails)
     const defaultLocation = { lat: 18.7883, lng: 98.9853 };
     
     try {
-        // Create the map with custom styling
+        // Get location first
+        const location = await new Promise((resolve, reject) => {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        resolve({
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude,
+                        });
+                    },
+                    () => {
+                        console.log('Geolocation failed, using default location');
+                        resolve(defaultLocation);
+                    }
+                );
+            } else {
+                console.log('Geolocation not available, using default location');
+                resolve(defaultLocation);
+            }
+        });
+
+        // Now create the map with the correct initial location
         map = new google.maps.Map(document.getElementById("map"), {
             zoom: 15,
-            center: defaultLocation,
+            center: location,
             mapTypeControl: false,
             streetViewControl: false,
             fullscreenControl: false,
@@ -74,31 +95,6 @@ function initMap() {
 
         // Load existing cafes
         loadExistingCafes();
-
-        // Try to get user's location
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    const pos = {
-                        lat: position.coords.latitude,
-                        lng: position.coords.longitude,
-                    };
-                    console.log('Got user location:', pos);
-                    map.setCenter(pos);
-                    // Temporarily disable places search
-                    // searchNearbyCafes(pos);
-                },
-                () => {
-                    console.log('Geolocation failed, using default location');
-                    // Temporarily disable places search
-                    // searchNearbyCafes(defaultLocation);
-                }
-            );
-        } else {
-            console.log('Geolocation not available, using default location');
-            // Temporarily disable places search
-            // searchNearbyCafes(defaultLocation);
-        }
 
         // Initialize UI elements
         initializeUI();
