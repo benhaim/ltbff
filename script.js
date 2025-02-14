@@ -37,10 +37,12 @@ async function initMap() {
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
                     (position) => {
-                        resolve({
+                        const userLocation = {
                             lat: position.coords.latitude,
                             lng: position.coords.longitude,
-                        });
+                        };
+                        
+                        resolve(userLocation);
                     },
                     () => {
                         console.log('Geolocation failed, using default location');
@@ -55,7 +57,7 @@ async function initMap() {
 
         // Now create the map with the correct initial location
         map = new google.maps.Map(document.getElementById("map"), {
-            zoom: 15,
+            zoom: 17,
             center: location,
             mapTypeControl: false,
             streetViewControl: false,
@@ -74,10 +76,23 @@ async function initMap() {
             }
         });
 
+        // Add user location marker after map is initialized
+        if (location !== defaultLocation) {
+            const { AdvancedMarkerElement } = await google.maps.importLibrary("marker");
+            const userMarkerDiv = document.createElement('div');
+            userMarkerDiv.className = 'user-location-marker';
+            
+            new AdvancedMarkerElement({
+                map,
+                position: location,
+                content: userMarkerDiv,
+                title: 'Your Location'
+            });
+        }
+
         // Create InfoWindow for markers
         infoWindow = new google.maps.InfoWindow({
             pixelOffset: new google.maps.Size(0, -5),  // Adjust the vertical offset
-            disableAutoPan: true
         });
 
         // Add this right after creating the InfoWindow
@@ -108,21 +123,12 @@ async function initMap() {
                 // Get place details
                 const request = {
                     placeId: e.placeId,
-                    fields: ['name', 'formatted_address', 'geometry']
+                    fields: ['name', 'formatted_address', 'geometry', 'types']
                 };
 
                 service.getDetails(request, (place, status) => {
                     if (status === google.maps.places.PlacesServiceStatus.OK) {
-                        // Create our custom popup
-                        const content = `
-                            <div class="popup-content">
-                                <h3>${place.name}</h3>
-                                <p>${place.formatted_address}</p>
-                                <button class="rate-btn">
-                                    <i class="fa-solid fa-star"></i> Rate This Place
-                                </button>
-                            </div>
-                        `;
+                        const content = generatePopupContent(place);
 
                         infoWindow.setContent(content);
                         infoWindow.setPosition(e.latLng);
@@ -171,6 +177,7 @@ function initializeUI() {
                             lng: position.coords.longitude,
                         };
                         map.setCenter(pos);
+                        map.setZoom(17);
                         locationBtn.classList.remove('loading');
                     },
                     () => {
@@ -226,15 +233,6 @@ function generateRatingGroups() {
             `;
             container.appendChild(group);
         });
-
-        // Add info icon
-        const infoIcon = document.createElement('div');
-        infoIcon.className = 'info-icon';
-        infoIcon.innerHTML = `<i class="fa-solid fa-info-circle"></i>`;
-        infoIcon.addEventListener('click', () => {
-            alert('WiFi: Rate the quality of WiFi\nPower: Rate the availability of power outlets\nQuiet: Rate the quietness of the place\nCoffee: Rate the quality of coffee\nFood: Rate the food options available');
-        });
-        container.appendChild(infoIcon);
     } else {
         console.error('Ratings container not found');
     }
@@ -349,144 +347,54 @@ function loadExistingCafes() {
         .catch(error => console.error('Error:', error));
 }
 
-// Add this function to create markers for our rated cafes
+// Update the createRatedCafeMarker function
 async function createRatedCafeMarker(cafe) {
     // Import the marker library
-    const { AdvancedMarkerElement, PinElement } = await google.maps.importLibrary("marker");
+    const { AdvancedMarkerElement } = await google.maps.importLibrary("marker");
 
-    // Create a custom pin element
-    const pinElement = new PinElement({
-        background: "#4CAF50",
-        borderColor: "#3d8b40",
-        glyphColor: "white",
-        scale: 1.2
-    });
+    // Create a custom element for the marker
+    const markerContent = document.createElement('div');
+    markerContent.className = 'custom-marker';
+    markerContent.innerHTML = '<i class="fa-solid fa-laptop"></i>';
 
-    // Create the marker
+    // Create the marker with custom element
     const marker = new AdvancedMarkerElement({
         map,
         position: { lat: cafe.lat, lng: cafe.lng },
         title: cafe.name,
-        content: pinElement.element
+        content: markerContent
     });
 
     // Add click listener
     marker.addListener('click', (e) => {
         e.stop();
         
-        const content = `
-            <div class="popup-content">
-                <h3>${cafe.name}</h3>
-                <p>${cafe.address}</p>
-                <div class="quick-ratings">
-                    ${Object.entries(cafe.ratings).map(([category, rating]) => `
-                        <div class="rating-item" title="${category}">
-                            <i class="fa-solid ${categoryIcons[category]}"></i>
-                            <span class="rating-value rating-level-${rating}">${rating}/3</span>
-                        </div>
-                    `).join('')}
-                </div>
-                <button class="rate-btn">
-                    <i class="fa-solid fa-star"></i> Rate This Place
-                </button>
-            </div>
-        `;
-
-        infoWindow.setContent(content);
-        infoWindow.setPosition({ lat: cafe.lat, lng: cafe.lng });
-        infoWindow.open(map);
-
-        // Add click handler for rate button
-        setTimeout(() => {
-            const rateBtn = document.querySelector('.rate-btn');
-            if (rateBtn) {
-                rateBtn.addEventListener('click', () => {
-                    showRatingForm(cafe);
-                });
+        // Get place details from Google
+        const request = {
+            query: cafe.name + ' ' + cafe.address,
+            fields: ['name', 'formatted_address', 'geometry', 'types']
+        };
+        
+        service.textSearch(request, (results, status) => {
+            if (status === google.maps.places.PlacesServiceStatus.OK && results[0]) {
+                // Merge our cafe data with Google's place types
+                const enrichedCafe = {
+                    ...cafe,
+                    types: results[0].types
+                };
+                const content = generatePopupContent(enrichedCafe);
+                infoWindow.setContent(content);
+                infoWindow.setPosition({ lat: cafe.lat, lng: cafe.lng });
+                infoWindow.open(map);
+            } else {
+                // Fallback to our cafe data if Google search fails
+                const content = generatePopupContent(cafe);
+                infoWindow.setContent(content);
+                infoWindow.setPosition({ lat: cafe.lat, lng: cafe.lng });
+                infoWindow.open(map);
             }
-        }, 100);
+        });
     });
-}
-
-// Add this function to show detailed ratings
-function showDetailedRatings(cafe) {
-    console.log('Showing detailed ratings for:', cafe);
-    
-    // Remove any existing panel first
-    const existingPanel = document.querySelector('.details-panel');
-    if (existingPanel) {
-        existingPanel.remove();
-    }
-
-    // Create overlay for outside clicks
-    const overlay = document.createElement('div');
-    overlay.className = 'panel-overlay';
-    
-    const panel = document.createElement('div');
-    panel.className = 'details-panel';
-    
-    panel.innerHTML = `
-        <div class="panel-header">
-            <button class="back-btn">
-                <i class="fa-solid fa-chevron-right"></i>
-            </button>
-            <h2>${cafe.name}</h2>
-        </div>
-        <div class="panel-content">
-            <p class="cafe-address">${cafe.address || 'No address provided'}</p>
-            
-            <div class="detailed-ratings">
-                ${Object.entries(cafe.ratings).map(([category, rating]) => `
-                    <div class="rating-detail">
-                        <div class="rating-header">
-                            <i class="fa-solid ${categoryIcons[category]}"></i>
-                            <span class="category-name">${category}: ${ratingLabels[category][Math.round(rating)-1]}</span>
-                        </div>
-                        <div class="rating-value rating-level-${Math.round(rating)}">
-                            ${rating}/3
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
-            
-            <div class="rating-footer">
-                <i class="fa-solid fa-chart-simple"></i>
-                Based on ${cafe.total_ratings || 1} rating${cafe.total_ratings !== 1 ? 's' : ''}
-            </div>
-
-            <button class="rate-btn">
-                <i class="fa-solid fa-star"></i> Rate This Place
-            </button>
-        </div>
-    `;
-    
-    // Add to DOM
-    document.body.appendChild(overlay);
-    document.body.appendChild(panel);
-    
-    function closePanel() {
-        panel.classList.add('slide-out');
-        overlay.classList.add('fade-out');
-        setTimeout(() => {
-            panel.remove();
-            overlay.remove();
-        }, 300);
-    }
-    
-    // Close handlers
-    overlay.addEventListener('click', closePanel);
-    panel.querySelector('.back-btn').addEventListener('click', closePanel);
-    
-    // Add rate button handler
-    panel.querySelector('.rate-btn').onclick = () => {
-        showRatingForm(cafe);
-    };
-
-    // Force a reflow to trigger animation
-    panel.offsetHeight;
-    overlay.offsetHeight;
-    panel.style.transform = 'translateX(0)';
-    overlay.style.opacity = '1';
 }
 
 // Update the initializeAutocomplete function
@@ -498,7 +406,7 @@ async function initializeAutocomplete() {
         console.error('Search input not found');
         return;
     }
-    
+
     try {
         let searchTimeout;
         let resultsContainer;
@@ -571,15 +479,7 @@ async function initializeAutocomplete() {
                     map.setZoom(17);
 
                     // Show info window for the place
-                    const content = `
-                        <div class="popup-content">
-                            <h3>${selectedPlace.name}</h3>
-                            <p>${selectedPlace.address}</p>
-                            <button class="rate-btn">
-                                <i class="fa-solid fa-star"></i> Rate This Place
-                            </button>
-                        </div>
-                    `;
+                    const content = generatePopupContent(selectedPlace);
 
                     // Stop any existing info windows
                     infoWindow.close();
@@ -623,14 +523,6 @@ async function initializeAutocomplete() {
             });
         }
 
-        // Add to initializeAutocomplete
-        const backButton = document.querySelector('.back-button');
-        if (backButton) {
-            backButton.addEventListener('click', () => {
-                document.getElementById('searchBox').classList.add('hidden');
-            });
-        }
-
     } catch (error) {
         console.error('Error initializing search:', error);
     }
@@ -643,7 +535,7 @@ function showRatingForm(cafe = null) {
 
     // Reset form state completely
     cafeForm.reset();
-    
+
     // Update form appearance based on whether we're rating existing or adding new
     if (cafe) {
         formTitle.textContent = `Rate ${cafe.name}`;
@@ -715,4 +607,48 @@ function showNotification(type, message) {
         notification.classList.remove('show');
         setTimeout(() => notification.remove(), 300);
     }, 3000);
+}
+
+// Add this helper function at the top with other utility functions
+function generatePopupContent(place) {
+    // Helper function to get a friendly place type
+    function getPlaceType(place) {
+        if (place.types && place.types.length > 0) {
+            // Format the first type nicely
+            return place.types[0].split('_')
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(' ');
+        }
+        return 'Place';  // Default fallback
+    }
+
+    return `
+        <div class="popup-content">
+            <div class="popup-header">
+                <h3>${place.name}</h3>
+                <a href="https://www.google.com/maps/search/${place.place_id ? 
+                    `place/?q=place_id:${place.place_id}` : 
+                    encodeURIComponent(place.name)}" 
+                   target="_blank" 
+                   class="map-link"
+                   title="Open in Google Maps">
+                    <i class="fa-solid fa-map-location-dot"></i>
+                </a>
+            </div>
+            <p class="place-type">${getPlaceType(place)}</p>
+            ${place.ratings ? `
+                <div class="quick-ratings">
+                    ${Object.entries(place.ratings).map(([category, rating]) => `
+                        <div class="rating-item" title="${category}">
+                            <i class="fa-solid ${categoryIcons[category]}"></i>
+                            <span class="rating-value rating-level-${rating}">${rating}/3</span>
+                        </div>
+                    `).join('')}
+                </div>
+            ` : ''}
+            <button class="rate-btn">
+                <i class="fa-solid fa-star"></i> Rate This Place
+            </button>
+        </div>
+    `;
 }
