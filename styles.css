@@ -89,7 +89,7 @@ body {
 input, textarea {
     width: 100%;
     padding: 12px;
-    margin: 8px 0;
+    margin: 4px 0;
     border: 1px solid #ddd;
     border-radius: 8px;
     box-sizing: border-box;
@@ -124,7 +124,8 @@ input, textarea {
     width: 100%;
     padding: 10px;
     border: 1px solid #ddd;
-    border-radius: 16px;
+    border-radius: 24px;
+    background-color: #ffffff88;
 }
 
 #cafeName.loading {
@@ -533,7 +534,7 @@ button:hover {
     border-radius: 24px;
     background: rgba(255,255,255,0.2);
     box-shadow: 0 2px 6px rgba(0,0,0,0.4);
-    padding: 0 8px;
+    padding: 0 4px;
     position: relative;
 }
 
@@ -603,13 +604,9 @@ button:hover {
 .map-link {
     color: #1a73e8;
     font-size: 16px;
-    padding: 2px;
-    border-radius: 4px;
     transition: background-color 0.2s;
-}
-
-.map-link:hover {
-    background-color: rgba(26, 115, 232, 0.1);
+    display: flex;
+    align-items: center;
 }
 
 .place-type {
@@ -620,8 +617,8 @@ button:hover {
 }
 
 .custom-marker {
-    background: #4CAF50;
-    padding: 8px;
+    background: #1a73e8;
+    padding: 6px;
     border-radius: 50%;
     box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     cursor: pointer;
@@ -630,11 +627,12 @@ button:hover {
 
 .custom-marker:hover {
     transform: scale(1.1);
+    background: #1557b0;
 }
 
 .custom-marker i {
     color: white;
-    font-size: 16px;
+    font-size: 12px;
     display: block;
 }
 
@@ -664,4 +662,10 @@ button:hover {
     0% { transform: scale(1); opacity: 0.3; }
     70% { transform: scale(3); opacity: 0; }
     100% { transform: scale(3); opacity: 0; }
+}
+
+.map-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
 }

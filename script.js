@@ -626,14 +626,27 @@ function generatePopupContent(place) {
         <div class="popup-content">
             <div class="popup-header">
                 <h3>${place.name}</h3>
-                <a href="https://www.google.com/maps/search/${place.place_id ? 
-                    `place/?q=place_id:${place.place_id}` : 
-                    encodeURIComponent(place.name)}" 
-                   target="_blank" 
-                   class="map-link"
-                   title="Open in Google Maps">
-                    <i class="fa-solid fa-map-location-dot"></i>
-                </a>
+                <div class="map-actions">
+                    ${!place.ratings ? `
+                    <a href="https://www.google.com/maps/search/${place.place_id ? 
+                        `place/?q=place_id:${place.place_id}` : 
+                        encodeURIComponent(place.name)}" 
+                       target="_blank" 
+                       class="map-link"
+                       title="Open in Google Maps">
+                        <i class="fa-solid fa-map-location-dot"></i>
+                    </a>
+                    ` : ''}
+                    ${place.ratings ? `
+                    <a href="https://www.google.com/maps/dir/?api=1&destination=${
+                        encodeURIComponent(place.name)}&destination_place_id=${place.place_id || ''}" 
+                       target="_blank"
+                       class="map-link"
+                       title="Get Directions">
+                        <i class="fa-solid fa-route"></i>
+                    </a>
+                    ` : ''}
+                </div>
             </div>
             <p class="place-type">${getPlaceType(place)}</p>
             ${place.ratings ? `
