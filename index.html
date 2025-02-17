@@ -3,6 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Make the app capable of running in standalone mode -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    
+    <!-- Set the status bar style -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    
+    <!-- Set the app title for the home screen -->
+    <meta name="apple-mobile-web-app-title" content="LapTopBFF">
+    
+    <!-- Add icons for different device sizes -->
+    <link rel="apple-touch-icon" href="icons/touch-icon-iphone.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="icons/touch-icon-ipad.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/touch-icon-iphone-retina.png">
+    <link rel="apple-touch-icon" sizes="167x167" href="icons/touch-icon-ipad-retina.png">
+    
+    <!-- Add a startup image -->
+    <link rel="apple-touch-startup-image" href="icons/launch.png">
+    
     <title>Laptop-Friendly Cafés Map (Google)</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -19,6 +38,47 @@
     <button id="locationBtn" class="location-btn" title="Center on my location">
         <i class="fa-solid fa-location-crosshairs"></i>
     </button>
+
+    <div id="installPrompt" class="install-prompt hidden">
+        <button onclick="handleInstallClick()">
+            <i class="fa-solid fa-plus"></i>
+            Keep as App
+        </button>
+    </div>
+
+    <div id="installInstructions" class="install-instructions hidden">
+        <div class="instructions-content">
+            <h3>Keep as App</h3>
+            <div id="safariInstructions">
+                <ol>
+                    <li>Tap the <i class="fa-solid fa-arrow-up-from-bracket"></i> share button</li>
+                    <li>Scroll down and tap "Add to Home Screen" <small>(iOS option)</small></li>
+                    <li>Tap "Add" in the top right</li>
+                </ol>
+            </div>
+            <div id="nonSafariInstructions" class="hidden">
+                <p>This feature only works in Safari.</p>
+                <div class="copy-url-container">
+                    <p>Copy this URL and paste it in Safari:</p>
+                    <div class="url-display">
+                        <span id="urlToCopy"></span>
+                        <button onclick="copyUrl()" class="copy-button">
+                            <i class="fa-solid fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div id="androidInstructions" class="hidden">
+                <p>To install this app on Android:</p>
+                <ol>
+                    <li>Tap the menu button <i class="fa-solid fa-ellipsis-vertical"></i></li>
+                    <li>Select "Install app" or "Add to Home screen"</li>
+                    <li>Follow the prompts to install</li>
+                </ol>
+            </div>
+            <button onclick="hideInstallInstructions()">Got it!</button>
+        </div>
+    </div>
 
     <div id="searchBox" class="search-box">
         <div class="search-input-container">

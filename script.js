@@ -57,37 +57,152 @@ async function initMap() {
 
         // Now create the map with the correct initial location
         map = new google.maps.Map(document.getElementById("map"), {
-            zoom: 17,
+            zoom: 19,
             center: location,
-            mapTypeControl: false,
-            streetViewControl: false,
-            fullscreenControl: false,
-            mapId: 'd798b01898fb267b',
-            gestureHandling: 'greedy',
+            disableDefaultUI: true,
             zoomControl: false,
-            locationButton: true,
-            controlSize: 32,
-            clickableIcons: true,
-            mapTypeControlOptions: {
-                position: google.maps.ControlPosition.TOP_RIGHT
-            },
-            zoomControlOptions: {
-                position: google.maps.ControlPosition.RIGHT_CENTER
-            }
+            gestureHandling: "greedy",
+            scrollwheel: true,
+            draggable: true,
+            keyboardShortcuts: false,
+            minZoom: 3,
+            maxZoom: 20,
+            styles: [
+                {
+                    elementType: "geometry",
+                    stylers: [{ color: "#242f3e" }],
+                },
+                {
+                    elementType: "labels.text.fill",
+                    stylers: [{ color: "#746855" }],
+                },
+                {
+                    elementType: "labels.text.stroke",
+                    stylers: [{ color: "#242f3e" }],
+                },
+                {
+                    featureType: "administrative.locality",
+                    elementType: "labels.text.fill",
+                    stylers: [{ color: "#d59563" }],
+                },
+                {
+                    featureType: "poi",
+                    elementType: "labels.text.fill",
+                    stylers: [{ color: "#d59563" }],
+                },
+                {
+                    featureType: "poi.park",
+                    elementType: "geometry",
+                    stylers: [{ color: "#263c3f" }],
+                },
+                {
+                    featureType: "poi.park",
+                    elementType: "labels.text.fill",
+                    stylers: [{ color: "#6b9a76" }],
+                },
+                {
+                    featureType: "road",
+                    elementType: "geometry",
+                    stylers: [{ color: "#38414e" }],
+                },
+                {
+                    featureType: "road",
+                    elementType: "geometry.stroke",
+                    stylers: [{ color: "#212a37" }],
+                },
+                {
+                    featureType: "road",
+                    elementType: "labels.text.fill",
+                    stylers: [{ color: "#9ca5b3" }],
+                },
+                {
+                    featureType: "water",
+                    elementType: "geometry",
+                    stylers: [{ color: "#17263c" }],
+                },
+                {
+                    featureType: "water",
+                    elementType: "labels.text.fill",
+                    stylers: [{ color: "#515c6d" }],
+                },
+                {
+                    featureType: "water",
+                    elementType: "labels.text.stroke",
+                    stylers: [{ color: "#17263c" }],
+                },
+                {
+                    featureType: "poi",
+                    elementType: "labels",
+                    stylers: [{ visibility: "off" }]  // Hide all POIs by default
+                },
+                {
+                    featureType: "poi.business",
+                    elementType: "labels",
+                    stylers: [{ visibility: "on" }]  // Show businesses
+                },
+                {
+                    featureType: "poi.government",
+                    elementType: "labels",
+                    stylers: [{ visibility: "off" }]  // Hide government buildings
+                },
+                {
+                    featureType: "poi.medical",
+                    elementType: "labels",
+                    stylers: [{ visibility: "off" }]  // Hide medical facilities
+                },
+                {
+                    featureType: "poi.school",
+                    elementType: "labels",
+                    stylers: [{ visibility: "off" }]  // Hide schools
+                },
+                {
+                    featureType: "poi.sports_complex",
+                    elementType: "labels",
+                    stylers: [{ visibility: "off" }]  // Hide sports complexes
+                },
+                {
+                    featureType: "poi.place_of_worship",
+                    stylers: [{ visibility: "off" }]  // Hide religious places
+                }
+            ]
         });
 
         // Add user location marker after map is initialized
         if (location !== defaultLocation) {
-            const { AdvancedMarkerElement } = await google.maps.importLibrary("marker");
-            const userMarkerDiv = document.createElement('div');
-            userMarkerDiv.className = 'user-location-marker';
+            class UserLocationMarker extends google.maps.OverlayView {
+                constructor(position) {
+                    super();
+                    this.position = position;
+                    this.div = null;
+                }
             
-            new AdvancedMarkerElement({
-                map,
-                position: location,
-                content: userMarkerDiv,
-                title: 'Your Location'
-            });
+                onAdd() {
+                    this.div = document.createElement('div');
+                    this.div.className = 'user-location-marker';
+                    const panes = this.getPanes();
+                    panes.overlayLayer.appendChild(this.div);
+                }
+            
+                draw() {
+                    const overlayProjection = this.getProjection();
+                    const point = overlayProjection.fromLatLngToDivPixel(this.position);
+                    
+                    if (this.div) {
+                        this.div.style.left = (point.x - 8) + 'px';  // Center horizontally (16/2)
+                        this.div.style.top = (point.y - 8) + 'px';   // Center vertically (16/2)
+                    }
+                }
+            
+                onRemove() {
+                    if (this.div) {
+                        this.div.parentNode.removeChild(this.div);
+                        this.div = null;
+                    }
+                }
+            }
+            
+            const userMarker = new UserLocationMarker(new google.maps.LatLng(location.lat, location.lng));
+            userMarker.setMap(map);
         }
 
         // Create InfoWindow for markers
@@ -168,20 +283,33 @@ function initializeUI() {
     const locationBtn = document.getElementById('locationBtn');
     if (locationBtn) {
         locationBtn.addEventListener('click', () => {
+            // If button is disabled, ignore the click
+            if (locationBtn.disabled) {
+                return;
+            }
+            
             if (navigator.geolocation) {
-                locationBtn.classList.add('loading');
+                locationBtn.disabled = true;  // Disable button during geolocation
+                
                 navigator.geolocation.getCurrentPosition(
                     (position) => {
                         const pos = {
                             lat: position.coords.latitude,
                             lng: position.coords.longitude,
                         };
-                        map.setCenter(pos);
-                        map.setZoom(17);
-                        locationBtn.classList.remove('loading');
+                        // First pan to location
+                        map.panTo(pos);
+                        
+                        // Wait for pan to complete before zooming
+                        google.maps.event.addListenerOnce(map, 'idle', () => {
+                            if (map.getZoom() !== 19) {
+                                map.setZoom(19);
+                            }
+                            locationBtn.disabled = false;
+                        });
                     },
                     () => {
-                        locationBtn.classList.remove('loading');
+                        locationBtn.disabled = false;
                         alert('Could not get your location');
                     }
                 );
@@ -349,26 +477,30 @@ function loadExistingCafes() {
 
 // Update the createRatedCafeMarker function
 async function createRatedCafeMarker(cafe) {
-    // Import the marker library
-    const { AdvancedMarkerElement } = await google.maps.importLibrary("marker");
-
-    // Create a custom element for the marker
-    const markerContent = document.createElement('div');
-    markerContent.className = 'custom-marker';
-    markerContent.innerHTML = '<i class="fa-solid fa-laptop"></i>';
-
     // Create the marker with custom element
-    const marker = new AdvancedMarkerElement({
+    const marker = new google.maps.Marker({
         map,
         position: { lat: cafe.lat, lng: cafe.lng },
         title: cafe.name,
-        content: markerContent
+        icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            fillColor: '#1a73e8',
+            fillOpacity: 1,
+            strokeWeight: 2,
+            strokeColor: '#ffffff',
+            scale: 14,
+            labelOrigin: new google.maps.Point(0, 0)
+        },
+        label: {
+            text: '\uf109',  // Font Awesome laptop icon
+            fontFamily: 'FontAwesome',
+            color: '#ffffff',
+            fontSize: '14px'
+        }
     });
 
     // Add click listener
     marker.addListener('click', (e) => {
-        e.stop();
-        
         // Get place details from Google
         const request = {
             query: cafe.name + ' ' + cafe.address,
@@ -386,6 +518,16 @@ async function createRatedCafeMarker(cafe) {
                 infoWindow.setContent(content);
                 infoWindow.setPosition({ lat: cafe.lat, lng: cafe.lng });
                 infoWindow.open(map);
+                
+                // Add click handler for rate button
+                setTimeout(() => {
+                    const rateBtn = document.querySelector('.rate-btn');
+                    if (rateBtn) {
+                        rateBtn.addEventListener('click', () => {
+                            showRatingForm(enrichedCafe);
+                        });
+                    }
+                }, 100);
             } else {
                 // Fallback to our cafe data if Google search fails
                 const content = generatePopupContent(cafe);
@@ -433,13 +575,38 @@ async function initializeAutocomplete() {
             }
 
             searchTimeout = setTimeout(() => {
+                // Get current map center
+                const center = map.getCenter();
+                
+                // Create a 30-meter radius bounds
+                const circle = new google.maps.Circle({
+                    center: center,
+                    radius: 30  // meters
+                });
+                
                 const request = {
                     query: searchText,
-                    bounds: map.getBounds()
+                    bounds: circle.getBounds(),
+                    locationBias: {
+                        radius: 30,
+                        center: center
+                    }
                 };
 
                 service.textSearch(request, (results, status) => {
                     if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+                        // Sort results by distance from center
+                        results.sort((a, b) => {
+                            const distA = google.maps.geometry.spherical.computeDistanceBetween(
+                                center, 
+                                a.geometry.location
+                            );
+                            const distB = google.maps.geometry.spherical.computeDistanceBetween(
+                                center, 
+                                b.geometry.location
+                            );
+                            return distA - distB;
+                        });
                         showResults(results.slice(0, 5), resultsContainer);
                     } else {
                         resultsContainer.innerHTML = '<div class="search-result-item">No results found</div>';
@@ -664,4 +831,98 @@ function generatePopupContent(place) {
             </button>
         </div>
     `;
+}
+
+// Check if the app is running in standalone mode
+function isRunningStandalone() {
+    return (window.navigator.standalone === true) || // iOS
+           (window.matchMedia('(display-mode: standalone)').matches); // Other browsers
+}
+
+// Show/hide install prompt
+function updateInstallPrompt() {
+    const prompt = document.getElementById('installPrompt');
+    if (prompt) {
+        if (!isRunningStandalone() && (isIOS() || isAndroid())) {
+            prompt.classList.remove('hidden');
+        } else {
+            prompt.classList.add('hidden');
+        }
+    }
+}
+
+// Call this when the page loads
+document.addEventListener('DOMContentLoaded', updateInstallPrompt);
+
+function showInstallInstructions() {
+    document.getElementById('installInstructions').classList.remove('hidden');
+}
+
+function hideInstallInstructions() {
+    document.getElementById('installInstructions').classList.add('hidden');
+}
+
+function isIOS() {
+    return /iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+
+function isAndroid() {
+    return /Android/i.test(navigator.userAgent);
+}
+
+function isSafari() {
+    const ua = navigator.userAgent;
+    const isIOS = /iPhone|iPad|iPod/i.test(ua);
+    const isChrome = ua.includes('CriOS');
+    const isFirefox = ua.includes('FxiOS');
+    const isEdge = ua.includes('EdgiOS');
+    const isOtherBrowser = isChrome || isFirefox || isEdge;
+    return isIOS && !isOtherBrowser;
+}
+
+function handleInstallClick() {
+    if (isAndroid()) {
+        showInstallInstructions();
+        document.getElementById('safariInstructions').classList.add('hidden');
+        document.getElementById('nonSafariInstructions').classList.add('hidden');
+        document.getElementById('androidInstructions').classList.remove('hidden');
+    } else if (isSafari()) {
+        showInstallInstructions();
+        document.getElementById('safariInstructions').classList.remove('hidden');
+        document.getElementById('nonSafariInstructions').classList.add('hidden');
+        document.getElementById('androidInstructions').classList.add('hidden');
+    } else if (isIOS()) {
+        showInstallInstructions();
+        document.getElementById('safariInstructions').classList.add('hidden');
+        document.getElementById('nonSafariInstructions').classList.remove('hidden');
+        document.getElementById('androidInstructions').classList.add('hidden');
+        
+        // Display the current URL
+        const urlDisplay = document.getElementById('urlToCopy');
+        if (urlDisplay) {
+            const safariUrl = 'https://www.pleasant-tech.com/ltbff/';
+            urlDisplay.textContent = safariUrl;
+        }
+    }
+}
+
+function copyUrl() {
+    navigator.clipboard.writeText('https://www.pleasant-tech.com/ltbff/')
+        .then(() => {
+            const copyButton = document.querySelector('.copy-button i');
+            const originalIcon = copyButton.className;
+            
+            // Change to checkmark
+            copyButton.className = 'fa-solid fa-check';
+            
+            // Change back after 1.5 seconds
+            setTimeout(() => {
+                copyButton.className = originalIcon;
+            }, 1500);
+            
+            showNotification('success', 'URL copied to clipboard');
+        })
+        .catch(() => {
+            showNotification('error', 'Could not copy URL');
+        });
 }
