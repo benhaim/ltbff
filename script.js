@@ -1,11 +1,10 @@
-console.log('Script loading...');
-
 // Global variables
 let map;
 let service;
 let infoWindow;
 let autocomplete;
 let selectedPlace = null;
+let allMarkers = [];
 
 // Keep the same rating labels and icons from the original version
 const ratingLabels = {
@@ -24,40 +23,195 @@ const categoryIcons = {
     food: 'fa-utensils'
 };
 
+// Add these style constants at the top of the file
+const DEFAULT_STYLE = [
+    {
+        elementType: "geometry",
+        stylers: [{ color: "#242f3e" }],
+    },
+    {
+        elementType: "labels.text.fill",
+        stylers: [{ color: "#746855" }],
+    },
+    {
+        elementType: "labels.text.stroke",
+        stylers: [{ color: "#242f3e" }],
+    },
+    {
+        featureType: "administrative.locality",
+        elementType: "labels.text.fill",
+        stylers: [{ color: "#d59563" }],
+    },
+    {
+        featureType: "poi",
+        elementType: "labels",
+        stylers: [{ visibility: "off" }]  // Hide all POIs by default
+    },
+    {
+        featureType: "poi.park",
+        elementType: "geometry",
+        stylers: [{ color: "#263c3f" }],
+    },
+    {
+        featureType: "poi.park",
+        elementType: "labels.text.fill",
+        stylers: [{ color: "#6b9a76" }],
+    },
+    {
+        featureType: "road",
+        elementType: "geometry",
+        stylers: [{ color: "#38414e" }],
+    },
+    {
+        featureType: "road",
+        elementType: "geometry.stroke",
+        stylers: [{ color: "#212a37" }],
+    },
+    {
+        featureType: "road",
+        elementType: "labels.text.fill",
+        stylers: [{ color: "#9ca5b3" }],
+    },
+    {
+        featureType: "water",
+        elementType: "geometry",
+        stylers: [{ color: "#17263c" }],
+    },
+    {
+        featureType: "water",
+        elementType: "labels.text.fill",
+        stylers: [{ color: "#515c6d" }],
+    },
+    {
+        featureType: "water",
+        elementType: "labels.text.stroke",
+        stylers: [{ color: "#17263c" }],
+    },
+    {
+        featureType: "road.highway",
+        elementType: "labels",
+        stylers: [{"visibility": "off"}]
+    },
+    {
+        featureType: "poi.business",
+        elementType: "labels",
+        stylers: [{ visibility: "off" }]  // Hide businesses when zoomed out
+    },
+    {
+        featureType: "poi.government",
+        elementType: "labels",
+        stylers: [{ visibility: "off" }]  // Hide government buildings
+    },
+    {
+        featureType: "poi.medical",
+        elementType: "labels",
+        stylers: [{ visibility: "off" }]  // Hide medical facilities
+    },
+    {
+        featureType: "poi.school",
+        elementType: "labels",
+        stylers: [{ visibility: "off" }]  // Hide schools
+    },
+    {
+        featureType: "poi.sports_complex",
+        elementType: "labels",
+        stylers: [{ visibility: "off" }]  // Hide sports complexes
+    },
+    {
+        featureType: "poi.place_of_worship",
+        elementType: "labels",
+        stylers: [{ visibility: "off" }]  // Hide religious places
+    }
+];
+
+const ZOOMED_STYLE = [
+    {
+        elementType: "geometry",
+        stylers: [{ color: "#242f3e" }],
+    },
+    {
+        elementType: "labels.text.fill",
+        stylers: [{ color: "#746855" }],
+    },
+    {
+        elementType: "labels.text.stroke",
+        stylers: [{ color: "#242f3e" }],
+    },
+    {
+        featureType: "road",
+        elementType: "geometry",
+        stylers: [{ color: "#38414e" }],
+    },
+    {
+        featureType: "road",
+        elementType: "geometry.stroke",
+        stylers: [{ color: "#212a37" }],
+    },
+    {
+        featureType: "road",
+        elementType: "labels.text.fill",
+        stylers: [{ color: "#9ca5b3" }],
+    },
+    {
+        featureType: "water",
+        elementType: "geometry",
+        stylers: [{ color: "#17263c" }],
+    },
+    {
+        featureType: "water",
+        elementType: "labels.text.fill",
+        stylers: [{ color: "#515c6d" }],
+    },
+    {
+        featureType: "water",
+        elementType: "labels.text.stroke",
+        stylers: [{ color: "#17263c" }],
+    },
+    {
+        featureType: "poi",
+        elementType: "labels",
+        stylers: [{ visibility: "on" }]  // Show POIs when zoomed in
+    },
+    {
+        featureType: "poi.business",
+        elementType: "labels",
+        stylers: [{ visibility: "on" }]  // Show businesses when zoomed in
+    }
+];
+
+// Add at the top with other constants
+const DEFAULT_ZOOM = 15;
+const MAX_ZOOM = 20;
+const MIN_ZOOM = 3;
+
 // Main initialization function
 async function initMap() {
-    console.log('Initializing map...');
-    
-    // Default to Chiang Mai coordinates (only used if geolocation fails)
-    const defaultLocation = { lat: 18.7883, lng: 98.9853 };
-    
     try {
-        // Get location first
-        const location = await new Promise((resolve, reject) => {
+        // Start loading everything
+        const locationPromise = new Promise((resolve, reject) => {
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
                     (position) => {
-                        const userLocation = {
+                        resolve({
                             lat: position.coords.latitude,
                             lng: position.coords.longitude,
-                        };
-                        
-                        resolve(userLocation);
+                        });
                     },
                     () => {
                         console.log('Geolocation failed, using default location');
-                        resolve(defaultLocation);
+                        resolve({ lat: 18.7883, lng: 98.9853 });
                     }
                 );
             } else {
                 console.log('Geolocation not available, using default location');
-                resolve(defaultLocation);
+                resolve({ lat: 18.7883, lng: 98.9853 });
             }
         });
 
-        // Now create the map with the correct initial location
+        // Create map with location
+        const location = await locationPromise;
         map = new google.maps.Map(document.getElementById("map"), {
-            zoom: 19,
+            zoom: DEFAULT_ZOOM,
             center: location,
             disableDefaultUI: true,
             zoomControl: false,
@@ -65,110 +219,14 @@ async function initMap() {
             scrollwheel: true,
             draggable: true,
             keyboardShortcuts: false,
-            minZoom: 3,
-            maxZoom: 20,
-            styles: [
-                {
-                    elementType: "geometry",
-                    stylers: [{ color: "#242f3e" }],
-                },
-                {
-                    elementType: "labels.text.fill",
-                    stylers: [{ color: "#746855" }],
-                },
-                {
-                    elementType: "labels.text.stroke",
-                    stylers: [{ color: "#242f3e" }],
-                },
-                {
-                    featureType: "administrative.locality",
-                    elementType: "labels.text.fill",
-                    stylers: [{ color: "#d59563" }],
-                },
-                {
-                    featureType: "poi",
-                    elementType: "labels.text.fill",
-                    stylers: [{ color: "#d59563" }],
-                },
-                {
-                    featureType: "poi.park",
-                    elementType: "geometry",
-                    stylers: [{ color: "#263c3f" }],
-                },
-                {
-                    featureType: "poi.park",
-                    elementType: "labels.text.fill",
-                    stylers: [{ color: "#6b9a76" }],
-                },
-                {
-                    featureType: "road",
-                    elementType: "geometry",
-                    stylers: [{ color: "#38414e" }],
-                },
-                {
-                    featureType: "road",
-                    elementType: "geometry.stroke",
-                    stylers: [{ color: "#212a37" }],
-                },
-                {
-                    featureType: "road",
-                    elementType: "labels.text.fill",
-                    stylers: [{ color: "#9ca5b3" }],
-                },
-                {
-                    featureType: "water",
-                    elementType: "geometry",
-                    stylers: [{ color: "#17263c" }],
-                },
-                {
-                    featureType: "water",
-                    elementType: "labels.text.fill",
-                    stylers: [{ color: "#515c6d" }],
-                },
-                {
-                    featureType: "water",
-                    elementType: "labels.text.stroke",
-                    stylers: [{ color: "#17263c" }],
-                },
-                {
-                    featureType: "poi",
-                    elementType: "labels",
-                    stylers: [{ visibility: "off" }]  // Hide all POIs by default
-                },
-                {
-                    featureType: "poi.business",
-                    elementType: "labels",
-                    stylers: [{ visibility: "on" }]  // Show businesses
-                },
-                {
-                    featureType: "poi.government",
-                    elementType: "labels",
-                    stylers: [{ visibility: "off" }]  // Hide government buildings
-                },
-                {
-                    featureType: "poi.medical",
-                    elementType: "labels",
-                    stylers: [{ visibility: "off" }]  // Hide medical facilities
-                },
-                {
-                    featureType: "poi.school",
-                    elementType: "labels",
-                    stylers: [{ visibility: "off" }]  // Hide schools
-                },
-                {
-                    featureType: "poi.sports_complex",
-                    elementType: "labels",
-                    stylers: [{ visibility: "off" }]  // Hide sports complexes
-                },
-                {
-                    featureType: "poi.place_of_worship",
-                    stylers: [{ visibility: "off" }]  // Hide religious places
-                }
-            ]
+            minZoom: MIN_ZOOM,
+            maxZoom: MAX_ZOOM,
+            styles: DEFAULT_STYLE
         });
 
         // Add user location marker after map is initialized
-        if (location !== defaultLocation) {
+        const defaultLocation = { lat: 18.7883, lng: 98.9853 };
+        if (location.lat !== defaultLocation.lat || location.lng !== defaultLocation.lng) {
             class UserLocationMarker extends google.maps.OverlayView {
                 constructor(position) {
                     super();
@@ -220,15 +278,22 @@ async function initMap() {
         });
 
         // Initialize Places Service
-        const placeDiv = document.createElement('div');
-        service = new google.maps.places.PlacesService(placeDiv);
+        service = new google.maps.places.PlacesService(map);
 
-        // Load existing cafes
-        loadExistingCafes();
+        // Initialize other components
+        await Promise.all([
+            initializeUI(),
+            loadExistingCafes()
+        ]);
 
-        // Initialize UI elements
-        initializeUI();
-        
+        // Everything is loaded, enable the splash button
+        const splash = document.getElementById('splashScreen');
+        const splashButton = splash.querySelector('.splash-button');
+        const buttonText = splash.querySelector('.button-text');
+        splash.classList.add('ready');
+        splashButton.disabled = false;
+        buttonText.classList.remove('hidden');  // Remove hidden class from text
+
         // Add this in initMap after creating the map
         map.addListener('click', (e) => {
             // If clicking on a place
@@ -272,24 +337,86 @@ async function initMap() {
             }
         });
 
+        // Add this in initMap after creating the map
+        map.addListener('zoom_changed', () => {
+            const currentZoom = map.getZoom();
+            console.log('Current zoom level:', currentZoom);
+            
+            if (currentZoom >= DEFAULT_ZOOM) {
+                map.setOptions({ styles: ZOOMED_STYLE });
+            } else {
+                map.setOptions({ styles: DEFAULT_STYLE });
+            }
+        });
+
     } catch (error) {
         console.error('Error initializing map:', error);
+        showNotification('error', 'Failed to initialize map');
     }
-}
 
-// Initialize UI elements
-function initializeUI() {
+    // Add after initMap is done initializing
+    document.getElementById('addBtn').addEventListener('click', () => {
+        if (!service) {
+            console.error('Places service not initialized');
+            return;
+        }
+
+        const center = map.getCenter();
+        
+        const request = {
+            query: 'cafe',
+            fields: ['name', 'geometry', 'formatted_address', 'types'],
+            locationBias: {
+                center: center,
+                radius: 100  // Search within 100 meters
+            }
+        };
+
+        try {
+            service.findPlaceFromQuery(request, (results, status) => {
+                console.log('Search status:', status);
+                console.log('Results:', results);
+                
+                if (status === google.maps.places.PlacesServiceStatus.OK && results && results.length > 0) {
+                    // Get the nearest place
+                    const nearestPlace = results[0];
+                    
+                    // Zoom and pan to it
+                    map.setZoom(20);  // Maximum zoom
+                    map.panTo(nearestPlace.geometry.location);
+                    
+                    // Show place details in info window
+                    infoWindow.setContent(generatePopupContent(nearestPlace));
+                    infoWindow.setPosition(nearestPlace.geometry.location);
+                    infoWindow.open(map);
+                } else {
+                    console.log('No places found or service error');
+                    showNotification('error', 'No places found nearby');
+                }
+            });
+        } catch (error) {
+            console.error('Places API error:', error);
+            showNotification('error', 'Failed to search nearby places');
+        }
+    });
+
+    // Update the info button creation
+    const infoBtn = document.createElement('button');
+    infoBtn.className = 'location-btn info-btn';  // Use location-btn as base class
+    infoBtn.innerHTML = '<i class="fa-solid fa-circle-info"></i>';
+    infoBtn.onclick = showInfoScreen;
+    document.body.appendChild(infoBtn);
+
     // Add location button handler
     const locationBtn = document.getElementById('locationBtn');
     if (locationBtn) {
         locationBtn.addEventListener('click', () => {
-            // If button is disabled, ignore the click
             if (locationBtn.disabled) {
                 return;
             }
-            
+
             if (navigator.geolocation) {
-                locationBtn.disabled = true;  // Disable button during geolocation
+                locationBtn.disabled = true;  // Disable while getting location
                 
                 navigator.geolocation.getCurrentPosition(
                     (position) => {
@@ -297,26 +424,32 @@ function initializeUI() {
                             lat: position.coords.latitude,
                             lng: position.coords.longitude,
                         };
-                        // First pan to location
+
+                        // First pan smoothly to the location
                         map.panTo(pos);
                         
-                        // Wait for pan to complete before zooming
-                        google.maps.event.addListenerOnce(map, 'idle', () => {
-                            if (map.getZoom() !== 19) {
-                                map.setZoom(19);
+                        // Then zoom in after a short delay
+                        setTimeout(() => {
+                            const currentZoom = map.getZoom();
+                            if (currentZoom < 17) {
+                                map.setZoom(17);
                             }
                             locationBtn.disabled = false;
-                        });
+                        }, 300);
                     },
-                    () => {
+                    (error) => {
+                        console.error('Geolocation error:', error);
+                        showNotification('error', 'Could not get your location');
                         locationBtn.disabled = false;
-                        alert('Could not get your location');
                     }
                 );
             }
         });
     }
+}
 
+// Update initializeUI to remove location functionality
+function initializeUI() {
     // Initialize form submission
     const cafeForm = document.getElementById('cafeForm');
     if (cafeForm) {
@@ -338,13 +471,14 @@ function initializeUI() {
     }
 }
 
-// Add these functions that were in the original version
+// Update the generateRatingGroups function
 function generateRatingGroups() {
     const container = document.querySelector('.ratings-container');
     if (container) {
         console.log('Generating rating groups...');
         container.innerHTML = ''; // Clear existing content
 
+        // First add all rating groups
         Object.keys(ratingLabels).forEach(category => {
             const group = document.createElement('div');
             group.className = 'rating-group';
@@ -361,12 +495,27 @@ function generateRatingGroups() {
             `;
             container.appendChild(group);
         });
+
+        // Add WiFi password input at the bottom
+        const wifiPasswordGroup = document.createElement('div');
+        wifiPasswordGroup.className = 'wifi-password-group';
+        wifiPasswordGroup.innerHTML = `
+            <div class="wifi-password-input">
+                <i class="fa-solid fa-key"></i>
+                <input type="text" 
+                       name="wifi_password" 
+                       id="wifi_password" 
+                       placeholder="WiFi Password"
+                       maxlength="255">
+            </div>
+        `;
+        container.appendChild(wifiPasswordGroup);
     } else {
         console.error('Ratings container not found');
     }
 }
 
-// Add this function to handle form submission
+// Update the submitCafeForm function
 function submitCafeForm(event) {
     event.preventDefault();
     
@@ -375,25 +524,29 @@ function submitCafeForm(event) {
         return;
     }
 
-    if (!validateForm()) {
-        alert('Please fill out all ratings before submitting.');
-        return;
-    }
-
-    // Get all the ratings
+    // Get all the ratings (now optional)
     const ratings = {};
-    const requiredFields = ['wifi', 'power', 'quiet', 'coffee', 'food'];
-    requiredFields.forEach(field => {
+    const ratingFields = ['wifi', 'power', 'quiet', 'coffee', 'food'];
+    ratingFields.forEach(field => {
         const selectedOption = document.querySelector(`input[name="${field}"]:checked`);
-        ratings[field] = selectedOption.value;
+        // Only include rating if it was selected
+        if (selectedOption) {
+            ratings[field] = selectedOption.value;
+        } else {
+            ratings[field] = "1";  // Default value if not rated
+        }
     });
+
+    // Get WiFi password
+    const wifiPassword = document.querySelector('#wifi_password').value.trim();
 
     const data = {
         name: selectedPlace.name,
         lat: selectedPlace.lat,
         lng: selectedPlace.lng,
         address: selectedPlace.address,
-        ratings: ratings
+        ratings: ratings,
+        wifi_password: wifiPassword
     };
 
     console.log('Submitting data:', data);
@@ -419,18 +572,46 @@ function submitCafeForm(event) {
                 cafeForm.reset();
             }
             
-            // Update or add marker
-            if (data.savedData && data.savedData.lat && data.savedData.lng) {
-                const savedPlace = {
+            // Create or update marker
+            if (data.isNewPlace) {
+                // Create new marker with properly structured data
+                const cafeData = {
+                    id: data.id,
                     name: data.savedData.name,
+                    address: data.savedData.address,
                     lat: data.savedData.lat,
                     lng: data.savedData.lng,
-                    address: data.savedData.address,
-                    ratings: data.savedData.ratings || ratings,
-                    total_ratings: data.isNewPlace ? 1 : (data.savedData.total_ratings || 1)
+                    ratings: data.savedData.ratings,
+                    total_ratings: 1
                 };
                 
-                createRatedCafeMarker(savedPlace);
+                // Create new marker
+                createRatedCafeMarker(cafeData).then(marker => {
+                    marker.cafeId = data.id;
+                    allMarkers.push(marker);
+                    // Store the marker reference in selectedPlace
+                    selectedPlace = {
+                        ...cafeData,
+                        marker: marker
+                    };
+                    // Close any existing info window
+                    infoWindow.close();
+                    
+                    // Pan to the new marker
+                    map.panTo({ lat: cafeData.lat, lng: cafeData.lng });
+                    
+                    // Reopen popup after a short delay
+                    setTimeout(() => {
+                        google.maps.event.trigger(marker, 'click');
+                    }, 300);
+                });
+            } else {
+                // Update existing marker
+                const existingMarker = allMarkers.find(m => m.cafeId === data.id);
+                if (existingMarker) {
+                    // Update marker info window content
+                    google.maps.event.trigger(existingMarker, 'click');
+                }
             }
         } else {
             showNotification('error', data.error || 'Error saving rating');
@@ -442,21 +623,29 @@ function submitCafeForm(event) {
     });
 }
 
-// Add this function to load existing cafes
+// Update the loadExistingCafes function
 function loadExistingCafes() {
+    // Clear all existing markers
+    allMarkers.forEach(marker => {
+        marker.setMap(null);
+    });
+    allMarkers = [];
+    
     console.log('Loading existing cafés...');
     fetch('api/get_cafes.php')
         .then(response => response.json())
         .then(data => {
             if (data.success) {
                 console.log('Loaded cafés:', data.cafes.length);
-                data.cafes.forEach(async cafe => {  // Make this async
+                data.cafes.forEach(async cafe => {
                     const cafeData = {
+                        id: cafe.id,
                         name: cafe.name,
                         address: cafe.address,
                         lat: parseFloat(cafe.latitude),
                         lng: parseFloat(cafe.longitude),
                         total_ratings: parseInt(cafe.total_ratings) || 1,
+                        wifi_password: cafe.wifi_password,
                         ratings: {
                             wifi: Math.round(parseFloat(cafe.wifi_rating)) || 1,
                             power: Math.round(parseFloat(cafe.power_rating)) || 1,
@@ -466,7 +655,9 @@ function loadExistingCafes() {
                         }
                     };
                     
-                    await createRatedCafeMarker(cafeData);  // Wait for marker creation
+                    const marker = await createRatedCafeMarker(cafeData);
+                    marker.cafeId = cafe.id;
+                    allMarkers.push(marker);
                 });
             } else {
                 console.error('Error loading cafés:', data.error);
@@ -501,6 +692,9 @@ async function createRatedCafeMarker(cafe) {
 
     // Add click listener
     marker.addListener('click', (e) => {
+        // Store the marker reference in the cafe object
+        cafe.marker = marker;
+        
         // Get place details from Google
         const request = {
             query: cafe.name + ' ' + cafe.address,
@@ -512,6 +706,7 @@ async function createRatedCafeMarker(cafe) {
                 // Merge our cafe data with Google's place types
                 const enrichedCafe = {
                     ...cafe,
+                    marker: marker,  // Include marker reference
                     types: results[0].types
                 };
                 const content = generatePopupContent(enrichedCafe);
@@ -537,6 +732,8 @@ async function createRatedCafeMarker(cafe) {
             }
         });
     });
+
+    return marker; // Return the marker so we can track it
 }
 
 // Update the initializeAutocomplete function
@@ -695,6 +892,7 @@ async function initializeAutocomplete() {
     }
 }
 
+// Update the showRatingForm function
 function showRatingForm(cafe = null) {
     const addCafeForm = document.getElementById('addCafeForm');
     const cafeForm = document.getElementById('cafeForm');
@@ -718,6 +916,32 @@ function showRatingForm(cafe = null) {
         selectedPlace = null;
     }
 
+    // Add close button to form header
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'form-close-btn';
+    closeBtn.innerHTML = '<i class="fa-solid fa-times"></i>';
+    closeBtn.onclick = () => {
+        addCafeForm.classList.add('hidden');
+        addCafeForm.classList.remove('visible');
+    };
+
+    // Add close button to form header
+    const formHeader = addCafeForm.querySelector('h2').parentElement;
+    formHeader.style.position = 'relative';
+    formHeader.appendChild(closeBtn);
+
+    // Update submit button
+    const submitBtn = cafeForm.querySelector('button[type="submit"]');
+    submitBtn.className = 'form-submit-btn';
+    submitBtn.innerHTML = '<i class="fa-solid fa-plus"></i>';
+
+    // Remove existing cancel button
+    const existingCancelBtn = document.getElementById('cancelBtn');
+    if (existingCancelBtn) {
+        existingCancelBtn.remove();
+    }
+
     // Show the form
     addCafeForm.classList.remove('hidden');
     addCafeForm.classList.add('visible');
@@ -733,18 +957,6 @@ function showRatingForm(cafe = null) {
     if (existingOverlay) {
         existingOverlay.remove();
     }
-}
-
-// Add validation function
-function validateForm() {
-    const requiredFields = ['wifi', 'power', 'quiet', 'coffee', 'food'];
-    for (const field of requiredFields) {
-        const selectedOption = document.querySelector(`input[name="${field}"]:checked`);
-        if (!selectedOption) {
-            return false; // If any field is not filled, return false
-        }
-    }
-    return true; // All fields are filled
 }
 
 // This is the main notification function we're using
@@ -776,18 +988,23 @@ function showNotification(type, message) {
     }, 3000);
 }
 
-// Add this helper function at the top with other utility functions
+// Update the generatePopupContent function
 function generatePopupContent(place) {
     // Helper function to get a friendly place type
     function getPlaceType(place) {
         if (place.types && place.types.length > 0) {
-            // Format the first type nicely
             return place.types[0].split('_')
                 .map(word => word.charAt(0).toUpperCase() + word.slice(1))
                 .join(' ');
         }
-        return 'Place';  // Default fallback
+        return 'Place';
     }
+
+    // Get the ID from the database record if it exists
+    const placeId = place.id || (place.marker && place.marker.cafeId);
+    
+    console.log("Generating popup content for place:", place);
+    console.log("Place ID:", placeId);
 
     return `
         <div class="popup-content">
@@ -812,6 +1029,9 @@ function generatePopupContent(place) {
                        title="Get Directions">
                         <i class="fa-solid fa-route"></i>
                     </a>
+                    <button class="delete-btn" onclick="showDeleteConfirmation('${placeId}', '${place.name.replace(/'/g, "\\'")}')" title="Remove this place">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
                     ` : ''}
                 </div>
             </div>
@@ -824,6 +1044,15 @@ function generatePopupContent(place) {
                             <span class="rating-value rating-level-${rating}">${rating}/3</span>
                         </div>
                     `).join('')}
+                </div>
+            ` : ''}
+            ${place.ratings && place.wifi_password ? `
+                <div class="wifi-info">
+                    <span class="wifi-password" onclick="copyWifiPassword(this, '${place.wifi_password}')" title="Click to copy">
+                        <i class="fa-solid fa-key"></i>
+                        ${place.wifi_password}
+                        <i class="fa-regular fa-copy"></i>
+                    </span>
                 </div>
             ` : ''}
             <button class="rate-btn">
@@ -880,29 +1109,35 @@ function isSafari() {
     return isIOS && !isOtherBrowser;
 }
 
+function isOtherIOSBrowser() {
+    const ua = navigator.userAgent;
+    const isIOS = /iPhone|iPad|iPod/i.test(ua);
+    const isChrome = ua.includes('CriOS');
+    const isFirefox = ua.includes('FxiOS');
+    const isEdge = ua.includes('EdgiOS');
+    return isIOS && (isFirefox || isEdge);  // Exclude Chrome since it can install
+}
+
 function handleInstallClick() {
     if (isAndroid()) {
         showInstallInstructions();
         document.getElementById('safariInstructions').classList.add('hidden');
         document.getElementById('nonSafariInstructions').classList.add('hidden');
+        document.getElementById('chromeInstructions').classList.add('hidden');
         document.getElementById('androidInstructions').classList.remove('hidden');
-    } else if (isSafari()) {
+    } else if (isIOS()) {
+        const isChrome = /CriOS/.test(navigator.userAgent);
         showInstallInstructions();
-        document.getElementById('safariInstructions').classList.remove('hidden');
+        document.getElementById('safariInstructions').classList.toggle(!isChrome);
+        document.getElementById('chromeInstructions').classList.toggle(isChrome);
         document.getElementById('nonSafariInstructions').classList.add('hidden');
         document.getElementById('androidInstructions').classList.add('hidden');
-    } else if (isIOS()) {
+    } else if (isOtherIOSBrowser()) {
         showInstallInstructions();
         document.getElementById('safariInstructions').classList.add('hidden');
+        document.getElementById('chromeInstructions').classList.add('hidden');
         document.getElementById('nonSafariInstructions').classList.remove('hidden');
         document.getElementById('androidInstructions').classList.add('hidden');
-        
-        // Display the current URL
-        const urlDisplay = document.getElementById('urlToCopy');
-        if (urlDisplay) {
-            const safariUrl = 'https://www.pleasant-tech.com/ltbff/';
-            urlDisplay.textContent = safariUrl;
-        }
     }
 }
 
@@ -925,4 +1160,141 @@ function copyUrl() {
         .catch(() => {
             showNotification('error', 'Could not copy URL');
         });
+}
+
+function showDeleteConfirmation(placeId, placeName) {
+    console.log("Showing delete confirmation for place:", placeId, placeName);
+    const dialog = document.createElement('div');
+    dialog.className = 'confirm-dialog';
+    dialog.innerHTML = `
+        <h3>Remove ${placeName}?</h3>
+        <p>This action cannot be undone.</p>
+        <div class="actions">
+            <button class="cancel-btn" onclick="this.closest('.confirm-dialog').remove()">Cancel</button>
+            <button class="delete-btn" onclick="deletePlace(${placeId})">Remove</button>
+        </div>
+    `;
+    document.body.appendChild(dialog);
+}
+
+function deletePlace(placeId) {
+    console.log("Attempting to delete place:", placeId);
+    
+    const formData = new FormData();
+    formData.append('id', placeId);
+
+    fetch('api/delete_cafe.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        console.log("Raw response:", response);
+        return response.json();
+    })
+    .then(data => {
+        console.log("Delete response:", data);
+        if (data.success) {
+            document.querySelector('.confirm-dialog').remove();
+            infoWindow.close();
+            
+            // Remove the marker from the map
+            if (selectedPlace && selectedPlace.marker) {
+                console.log("Removing marker from map");
+                selectedPlace.marker.setMap(null);
+                selectedPlace = null;
+            }
+            
+            // Force reload of cafes
+            loadExistingCafes();
+            
+            showNotification('success', 'Place removed successfully');
+        } else {
+            showNotification('error', data.error || 'Failed to remove place');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('error', 'Failed to remove place');
+    });
+}
+
+// Add this function to check browser support
+function supportsAnimation() {
+    const elem = document.createElement('div');
+    const supported = typeof elem.style.transform !== 'undefined' && 
+                      typeof elem.style.transition !== 'undefined';
+    return supported;
+}
+
+
+// Add this after the supportsAnimation check
+window.addEventListener('load', () => {
+    const splash = document.getElementById('splashScreen');
+    if (supportsAnimation()) {
+        splash.style.transform = 'scale(1) rotate(0)';
+        splash.style.opacity = '1';
+        splash.style.transformOrigin = '48px calc(100% - 58px)';
+        splash.style.transition = 'all 0.8s cubic-bezier(0.4, 0, 0.2, 1)';
+    }
+});
+
+// Update the showInfoScreen function
+function showInfoScreen() {
+    const splash = document.getElementById('splashScreen');
+    const infoBtn = document.querySelector('.info-btn');
+    
+    if (supportsAnimation()) {
+        // First set initial state
+        splash.style.transformOrigin = '48px calc(100% - 58px)';
+        splash.style.transform = 'scale(0)';
+        
+        // Force a reflow to ensure initial state is applied
+        splash.offsetHeight;
+        
+        // Set transition
+        splash.style.transition = 'transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
+        
+        // Then remove hidden class
+        splash.classList.remove('hidden');
+        
+        // Finally, set the final state
+        requestAnimationFrame(() => {
+            splash.style.transform = 'scale(1)';
+        });
+        
+        infoBtn.classList.add('active');
+    }
+}
+
+// Update the hideSplashScreen function
+function hideSplashScreen() {
+    const splash = document.getElementById('splashScreen');
+    const infoBtn = document.querySelector('.info-btn');
+    
+    if (supportsAnimation()) {
+        splash.style.transition = 'transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
+        splash.style.transform = 'scale(0)';
+        
+        setTimeout(() => {
+            splash.classList.add('hidden');
+        }, 400);
+    } else {
+        splash.classList.add('hidden');
+    }
+    
+    infoBtn.classList.remove('active');
+}
+
+// Add helper function to copy WiFi password
+function copyWifiPassword(element, password) {
+    navigator.clipboard.writeText(password).then(() => {
+        const copyIcon = element.querySelector('i');
+        copyIcon.className = 'fa-solid fa-check';
+        setTimeout(() => {
+            copyIcon.className = 'fa-regular fa-copy';
+        }, 1500);
+        showNotification('success', 'WiFi password copied to clipboard');
+    }).catch(() => {
+        showNotification('error', 'Failed to copy WiFi password');
+    });
 }

@@ -36,6 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     quiet_rating = ROUND(((quiet_rating * total_ratings) + :quiet) / (total_ratings + 1), 1),
                     coffee_rating = ROUND(((coffee_rating * total_ratings) + :coffee) / (total_ratings + 1), 1),
                     food_rating = ROUND(((food_rating * total_ratings) + :food) / (total_ratings + 1), 1),
+                    wifi_password = COALESCE(:wifi_password, wifi_password),
                     total_ratings = total_ratings + 1
                 WHERE id = :id
             ");
@@ -46,7 +47,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'power' => floatval($data['ratings']['power']),
                 'quiet' => floatval($data['ratings']['quiet']),
                 'coffee' => floatval($data['ratings']['coffee']),
-                'food' => floatval($data['ratings']['food'])
+                'food' => floatval($data['ratings']['food']),
+                'wifi_password' => $data['wifi_password'] ?? null
             ]);
 
             // Get updated ratings
@@ -73,11 +75,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 INSERT INTO cafes (
                     name, latitude, longitude, address, 
                     wifi_rating, power_rating, quiet_rating, 
-                    coffee_rating, food_rating
+                    coffee_rating, food_rating, wifi_password
                 ) VALUES (
                     :name, :lat, :lng, :address,
                     :wifi, :power, :quiet,
-                    :coffee, :food
+                    :coffee, :food, :wifi_password
                 )
             ");
             
@@ -90,7 +92,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'power' => (float)$data['ratings']['power'],
                 'quiet' => (float)$data['ratings']['quiet'],
                 'coffee' => (float)$data['ratings']['coffee'],
-                'food' => (float)$data['ratings']['food']
+                'food' => (float)$data['ratings']['food'],
+                'wifi_password' => $data['wifi_password'] ?? null
             ];
             error_log("Insert values: " . print_r($insertValues, true));
             

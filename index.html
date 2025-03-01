@@ -22,7 +22,7 @@
     <!-- Add a startup image -->
     <link rel="apple-touch-startup-image" href="icons/launch.png">
     
-    <title>Laptop-Friendly Cafés Map (Google)</title>
+    <title>Laptop-Friendly Cafés</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="script.js"></script>
@@ -34,9 +34,26 @@
     </script>
 </head>
 <body>
+    <div id="splashScreen" class="splash-screen">
+        <div class="splash-content">
+            <i class="fa-solid fa-laptop-code splash-icon"></i>
+            <h1>LaptopBFF</h1>
+            <p>Find the perfect café for remote work or studying</p>
+            <p class="splash-tagline">its not just laptop-friendly,<br>it's BFFs! 💻✨</p>
+            <button class="splash-button" onclick="hideSplashScreen()" disabled>
+                <span class="button-content">
+                    <div class="loading-spinner"></div>
+                </span>
+                <span class="button-text hidden">Got it</span>
+            </button>
+        </div>
+    </div>
     <div id="map"></div>
     <button id="locationBtn" class="location-btn" title="Center on my location">
         <i class="fa-solid fa-location-crosshairs"></i>
+    </button>
+    <button id="addBtn" class="location-btn add-btn" title="Add new place">
+        <i class="fa-solid fa-plus"></i>
     </button>
 
     <div id="installPrompt" class="install-prompt hidden">
@@ -51,8 +68,15 @@
             <h3>Keep as App</h3>
             <div id="safariInstructions">
                 <ol>
-                    <li>Tap the <i class="fa-solid fa-arrow-up-from-bracket"></i> share button</li>
-                    <li>Scroll down and tap "Add to Home Screen" <small>(iOS option)</small></li>
+                    <li>Tap the <span class="ios-share-icon"></span> share button</li>
+                    <li>Scroll down and tap "Add to Home Screen"</li>
+                    <li>Tap "Add" in the top right</li>
+                </ol>
+            </div>
+            <div id="chromeInstructions" class="hidden">
+                <ol>
+                    <li>Tap the <i class="fa-solid fa-ellipsis-vertical"></i> share button, on the top right corner, next to the address bar</li>
+                    <li>Scroll down and tap "Add to Home Screen"</li>
                     <li>Tap "Add" in the top right</li>
                 </ol>
             </div>
@@ -71,9 +95,7 @@
             <div id="androidInstructions" class="hidden">
                 <p>To install this app on Android:</p>
                 <ol>
-                    <li>Tap the menu button <i class="fa-solid fa-ellipsis-vertical"></i></li>
-                    <li>Select "Install app" or "Add to Home screen"</li>
-                    <li>Follow the prompts to install</li>
+                    <li>App will soon be available on the Google Play Store</li>
                 </ol>
             </div>
             <button onclick="hideInstallInstructions()">Got it!</button>
