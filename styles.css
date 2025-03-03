@@ -795,6 +795,37 @@ button:hover {
     font-size: 64px;
     margin-bottom: 20px;
     color: var(--primary-color);
+    position: relative;
+    display: inline-block;
+}
+
+.splash-icon::after {
+    content: "♡";
+    position: absolute;
+    right: 27px;
+    top: 17px;
+    -webkit-text-stroke-width: 3px;
+    font-size: 26px;
+    animation: heartBeat 1.6s ease-in-out infinite;
+    transform-origin: center;
+}
+
+@keyframes heartBeat {
+    0% {
+        transform: scale(1);
+    }
+    14% {
+        transform: scale(1.3);
+    }
+    28% {
+        transform: scale(1);
+    }
+    42% {
+        transform: scale(1.3);
+    }
+    70% {
+        transform: scale(1);
+    }
 }
 
 .splash-content h1 {
@@ -1230,4 +1261,12 @@ button:hover {
 
 .rating-options-stack.rating .rating-option input:checked + label .fa-layers .fa-slash {
     color: white !important;
+}
+
+.ios-share-icon {
+    display: inline-block;
+    vertical-align: middle;
+    margin: 0px -6px;
+    width: 28px;
+    object-fit: contain;  /* Add this to ensure image scales properly */
 }
