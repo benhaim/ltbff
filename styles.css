@@ -175,12 +175,15 @@ input, textarea {
 
 .popup-content {
     min-width: 200px;
+    max-width: 280px;
+    overflow: visible;
 }
 
 .popup-content h3 {
     margin: 0 0 8px 0;
     font-size: 16px;
     color: #333;
+    max-width: 150px;
 }
 
 .popup-content p {
@@ -209,26 +212,22 @@ input, textarea {
 
 .quick-ratings {
     display: flex;
+    gap: 12px;
     justify-content: center;
-    gap: 15px;
-    margin: 10px 0;
+    margin: 12px 0;
 }
 
 .rating-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 5px;
-}
-
-.rating-item i {
-    font-size: 1.2em;
+    font-size: 20px;
     color: #666;
 }
 
-.rating-value {
-    font-size: 0.9em;
-    font-weight: bold;
+.rating-item i {
+    transition: color 0.2s;
+}
+
+.fa-solid {
+    color: var(--primary-color);
 }
 
 .rating-level-1 { color: #f44336; }
@@ -270,7 +269,7 @@ input, textarea {
 .rating-option {
     flex: 1;
     text-align: center;
-    font-size: 0.9em;
+    font-size: 1.5em;
 }
 
 .rating-option:hover {
@@ -325,15 +324,6 @@ input, textarea {
     filter: drop-shadow(0 1px 1px rgba(0,0,0,0.2));
 }
 
-.compact-form {
-    max-width: 600px;
-    margin: 0 auto;
-    padding: 15px;
-    border: 1px solid #ccc;
-    border-radius: 8px;
-    background-color: #f9f9f9;
-}
-
 .search-container {
     margin-bottom: 10px;
 }
@@ -345,39 +335,69 @@ input, textarea {
 }
 
 .rating-group {
-    margin-bottom: 8px;
     display: flex;
     align-items: center;
-    gap: 8px;
+    justify-content: center;
+    width: 24px;  /* Reduce from 40px */
 }
 
-.rating-group i {
-    flex: 0 0 20px;
-    font-size: 16px;
-}
-
-.rating-options {
+.rating-icons {
     display: flex;
-    gap: 4px;
+    justify-content: center;
+    gap: 12px;
+    margin: 8px 0;
+    flex-wrap: nowrap;  /* Prevent wrapping */
 }
 
-.rating-option {
+.rating-options-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+}
+
+.rating-options-stack .rating-option {
+    width: 24px;  /* Reduce from 40px */
+    height: 40px;
     display: flex;
     align-items: center;
-    padding: 4px 8px;
-    border: 1px solid #ddd;
-    border-radius: 12px;
+    justify-content: center;
     cursor: pointer;
-    font-size: 14px;
 }
 
-.rating-option:hover {
+.rating-options-stack .rating-option:hover {
     background: #f5f5f5;
 }
 
-.rating-option input:checked + .rating-label {
-    font-weight: bold;
-    color: #4CAF50;
+.rating-options-stack .rating-option input:checked ~ i {
+    color: var(--primary-color);
+}
+
+/* Special handling for wifi+rocket combo */
+.rating-options-stack .rating-option .fa-wifi {
+    margin-right: -8px;
+}
+
+.rating-options-stack .rating-option .fa-rocket {
+    font-size: 1.2em;
+    color: var(--primary-color);
+    animation: rocketFloat 2s ease-in-out infinite;
+    margin-left: -8px;
+}
+
+/* Special handling for burger+slash */
+.rating-options-stack .rating-option .fa-layers {
+    width: 20px;
+    height: 20px;
+    position: relative;
+}
+
+.rating-options-stack .rating-option .fa-layers .fa-slash {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform: scale(2.4);
+    color: white;
 }
 
 .form-buttons {
@@ -541,7 +561,7 @@ button:hover {
     display: flex;
     align-items: center;
     gap: 4px;
-    margin-bottom: 4px;
+    margin-bottom: 12px;
 }
 
 .popup-header h3 {
@@ -748,10 +768,6 @@ button:hover {
     color: white;
 }
 
-.add-btn {
-    bottom: 100px;  /* Position it above the location button */
-}
-
 .splash-screen {
     position: fixed;
     top: 0;
@@ -840,33 +856,65 @@ button:hover {
     display: block;  /* Show the text when ready */
 }
 
-.wifi-password-group {
-    margin-top: 12px;
-    border-radius: 4px;
-    background: rgba(255, 255, 255, 0.05);
+.wifi-info {
+    display: flex;
+    justify-content: center;  /* Center horizontally */
 }
 
 .wifi-password-input {
-    padding: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    padding: 8px;
+    width: 70%;  /* Make it shorter */
+    max-width: 200px;  /* Maximum width */
 }
 
 .wifi-password-input input {
-    padding: 6px;
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: darkgray;
     font-size: 14px;
-}
-
-.wifi-info {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    margin: 10px 0;
-    padding: 8px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 4px;
+    padding: 0;
+    width: 100%;
     text-align: center;
+    border-bottom: 1px solid var(--primary-color);
 }
 
+/* Change border color only on focus */
+.wifi-password-input input:not(.readonly-input):focus {
+    outline: none;
+    border-bottom-color: var(--primary-color);
+}
+
+/* Keep readonly state clean */
+.wifi-password-input input.readonly-input {
+    border: none;
+    padding-bottom: 0;
+}
+
+.wifi-password-input input.readonly-input {
+    cursor: default;
+}
+
+.wifi-password-input input:focus {
+    outline: none;
+}
+
+.wifi-password-input .copy-icon {
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.wifi-password-input .copy-icon:hover {
+    opacity: 1;
+}
+
+/* Remove the old wifi-info styles that used spans */
 .wifi-password {
     display: flex;
     align-items: center;
@@ -885,68 +933,6 @@ button:hover {
 
 .wifi-password i {
     opacity: 0.7;
-}
-
-.form-close-btn {
-    position: absolute;
-    right: 16px;
-    top: 16px;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    border: none;
-    background: rgba(0, 0, 0, 0.1);
-    color: #666;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-    font-size: 20px;
-}
-
-.form-close-btn:hover {
-    background: rgba(0, 0, 0, 0.2);
-    color: #333;
-}
-
-.form-submit-btn {
-    position: fixed;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    border: none;
-    background: var(--primary-color);
-    color: white;
-    font-size: 24px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: transform 0.2s, background-color 0.2s;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-}
-
-.form-submit-btn:hover {
-    background: var(--primary-dark);
-    transform: translateX(-50%) scale(1.05);
-}
-
-.form-submit-btn:active {
-    transform: translateX(-50%) scale(0.95);
-}
-
-.info-btn {
-    left: 20px;
-    right: auto;
-    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.info-btn.active {
-    transform: scale(1.2);
 }
 
 .splash-tagline {
@@ -1001,15 +987,247 @@ button:hover {
     margin: 0;
 }
 
-.form-container h2 {
-    font-size: 18px;
-    margin: 0 0 12px 0;
-}
-
 /* Add desktop-specific overrides if needed */
 @media (min-width: 769px) {
     .location-btn {
         width: 56px;
         height: 56px;
     }
+}
+
+.fa-layers {
+    position: relative;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.fa-layers .fa-slash {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform: scale(2.4);  /* Make slash bigger */
+    color: #3a4452;  /* Make slash white */
+}
+
+@keyframes rocketFloat {
+    0%, 100% { 
+        transform: rotate(45deg) translateY(0);
+    }
+    50% { 
+        transform: rotate(45deg) translateY(-3px);
+    }
+}
+
+.rating-item .fa-rocket {
+    font-size: 0.8em;
+    color: var(--primary-color);
+    animation: rocketFloat 2s ease-in-out infinite;
+}
+
+/* Keep wifi icon stable */
+.rating-item .fa-wifi {
+    margin-right: -8px;
+}
+
+/* Make trash icon red */
+.delete-btn i {
+    color: #dc3545;  /* Bootstrap's danger red */
+}
+
+.ratings-legend {
+    margin: 24px auto;
+    max-width: 360px;  /* But limit maximum width */
+    text-align: left;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 16px;
+    border-radius: 8px;
+}
+
+.legend-item {
+    display: grid;
+    /* Define more precise column widths */
+    grid-template-columns: 60px 24px 30px 24px 70px 50px;
+    align-items: center;
+    gap: 4px;  /* Reduce gap between items */
+    margin: 8px 0;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 14px;
+    white-space: nowrap;  /* Prevent wrapping */
+}
+
+.legend-item i {
+    color: var(--primary-color);
+    text-align: center;  /* Center the icons */
+}
+
+.legend-or {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 12px;
+    text-align: center;
+}
+
+.legend-label {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.legend-type {
+    color: var(--primary-color);
+    text-align: right;  /* Right align the type */
+}
+
+/* Special handling for wifi+rocket combo */
+.legend-item .fa-rocket {
+    margin-left: -8px;
+}
+
+/* Style the inline rating form */
+.popup-content .ratings-container {
+    margin-top: 12px;
+}
+
+.popup-content .rating-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.popup-content .rating-options {
+    display: flex;
+    gap: 4px;
+    flex: 1;
+}
+
+.popup-content .rating-option {
+    flex: 1;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    width:40px;
+}
+
+.popup-content .rating-option:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.popup-content .rating-option input {
+    display: none;
+}
+
+.popup-content .rating-option input:checked + .rating-label {
+    color: var(--primary-color);
+    font-weight: bold;
+}
+
+.popup-content .rating-actions {
+    display: flex;
+    justify-content: center;
+    margin: 12px 0;
+    width: 100%;
+}
+
+.popup-content .submit-rating {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    background: var(--primary-color);
+    color: white;
+    transition: background-color 0.2s;
+}
+
+.popup-content .submit-rating:hover {
+    background: var(--primary-dark);
+}
+
+.info-btn {
+    left: 20px;  /* Position on the left side */
+    right: auto; /* Override the right positioning from location-btn */
+    bottom: 28px; /* Match location button's bottom position */
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.info-btn.active {
+    transform: scale(1.2);
+}
+
+@keyframes rocketFloat {
+    0%, 100% { 
+        transform: rotate(45deg) translateY(3px);
+    }
+    50% { 
+        transform: rotate(45deg) translateY(-3px);
+    }
+}
+
+.rating-icons .rating-group .fa-rocket {
+    font-size: 1em;
+    color: var(--primary-color);
+    animation: rocketFloat 2s ease-in-out infinite;
+}
+
+/* Keep wifi icon stable */
+.rating-icons .rating-group .fa-wifi {
+    margin-right: -8px;
+}
+
+/* Fix InfoWindow overflow */
+.gm-style .gm-style-iw-c {
+    padding: 12px !important;
+    max-width: none !important;
+}
+
+.gm-style .gm-style-iw-d {
+    overflow: hidden !important;
+    max-width: none !important;
+}
+
+/* Hide unselected options by default */
+.rating-options-stack .rating-option:not(.selected) {
+    display: none;
+}
+
+/* Show all options when rating */
+.rating-options-stack.rating {
+    gap: 12px;  /* Restore gap when showing both options */
+}
+
+.rating-options-stack.rating .rating-option {
+    display: flex;  /* Show all options when rating */
+}
+
+/* Default state - selected icon is blue */
+.rating-options-stack .rating-option.selected i,
+.rating-options-stack .rating-option.selected .fa-rocket {
+    color: var(--primary-color);
+}
+
+/* Rating mode - ALL icons start grey, regardless of previous state */
+.rating-options-stack.rating .rating-option i,
+.rating-options-stack.rating .rating-option .fa-rocket,
+.rating-options-stack.rating .rating-option.selected i,
+.rating-options-stack.rating .rating-option.selected .fa-rocket {
+    color: darkgray !important;
+    animation: none !important;
+}
+
+/* Only change color when explicitly checked during rating */
+.rating-options-stack.rating .rating-option input:checked + label i,
+.rating-options-stack.rating .rating-option input:checked + label .fa-rocket {
+    color: var(--primary-color) !important;
+}
+
+/* Restore rocket animation only when checked */
+.rating-options-stack.rating .rating-option input:checked + label .fa-rocket {
+    animation: rocketFloat 2s ease-in-out infinite !important;
+}
+
+/* Special handling for burger slash */
+.rating-options-stack.rating .rating-option .fa-layers .fa-slash,
+.rating-options-stack.rating .rating-option.selected .fa-layers .fa-slash {
+    color: white !important;
+}
+
+.rating-options-stack.rating .rating-option input:checked + label .fa-layers .fa-slash {
+    color: white !important;
 }

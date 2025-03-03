@@ -39,7 +39,53 @@
             <i class="fa-solid fa-laptop-code splash-icon"></i>
             <h1>LaptopBFF</h1>
             <p>Find the perfect café for remote work or studying</p>
-            <p class="splash-tagline">its not just laptop-friendly,<br>it's BFFs! 💻✨</p>
+            
+            <!-- Add ratings legend -->
+            <div class="ratings-legend">
+                <div class="legend-item">
+                    <span class="legend-label">Basic</span>
+                    <i class="fa-solid fa-wifi"></i>
+                    <span class="legend-or">or</span> 
+                    <i class="fa-solid fa-rocket"></i>
+                    <span class="legend-label">Rocket</span>
+                    <span class="legend-type">WiFi</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-label">Rare</span>
+                    <i class="fa-solid fa-plug-circle-xmark"></i>
+                    <span class="legend-or">or</span>
+                    <i class="fa-solid fa-plug-circle-check"></i>
+                    <span class="legend-label">Abundant</span>
+                    <span class="legend-type">Power</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-label">Library</span>
+                    <i class="fa-solid fa-book"></i>
+                    <span class="legend-or">or</span>
+                    <i class="fa-solid fa-comments"></i>
+                    <span class="legend-label">Lively</span>
+                    <span class="legend-type">Vibe</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-label">Good</span>
+                    <i class="fa-solid fa-mug-saucer"></i>
+                    <span class="legend-or">or</span>
+                    <i class="fa-solid fa-mug-hot"></i>
+                    <span class="legend-label">Amazing</span>
+                    <span class="legend-type">Coffee</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-label">No</span>
+                    <span class="fa-layers fa-fw"><i class="fa-solid fa-burger"></i><i class="fa-solid fa-slash"></i></span>
+                    <span class="legend-or">or</span>
+                    <i class="fa-solid fa-burger"></i>
+                    <span class="legend-label">Has</span>
+                    <span class="legend-type">Food</span>
+                </div>
+            </div>
+
+            <p class="splash-tagline">more than just laptop-friendly,<br>it's BFFs! 💻✨</p>
+
             <button class="splash-button" onclick="hideSplashScreen()" disabled>
                 <span class="button-content">
                     <div class="loading-spinner"></div>
@@ -51,9 +97,6 @@
     <div id="map"></div>
     <button id="locationBtn" class="location-btn" title="Center on my location">
         <i class="fa-solid fa-location-crosshairs"></i>
-    </button>
-    <button id="addBtn" class="location-btn add-btn" title="Add new place">
-        <i class="fa-solid fa-plus"></i>
     </button>
 
     <div id="installPrompt" class="install-prompt hidden">
@@ -68,7 +111,7 @@
             <h3>Keep as App</h3>
             <div id="safariInstructions">
                 <ol>
-                    <li>Tap the <span class="ios-share-icon"></span> share button</li>
+                    <li>Tap the <span class="ios-share-icon"></span> share button on the bottom</li>
                     <li>Scroll down and tap "Add to Home Screen"</li>
                     <li>Tap "Add" in the top right</li>
                 </ol>
@@ -116,22 +159,6 @@
             <button class="clear-button">
                 <i class="fa-solid fa-xmark"></i>
             </button>
-        </div>
-    </div>
-
-    <div id="addCafeForm" class="form-overlay hidden">
-        <div class="form-container">
-            <h2>Add New Place</h2>
-            <form id="cafeForm" class="compact-form">
-                <div class="ratings-container">
-                    <!-- Rating groups will be generated here -->
-                </div>
-
-                <div class="form-buttons">
-                    <button type="button" id="cancelBtn">Cancel</button>
-                    <button type="submit">Submit</button>
-                </div>
-            </form>
         </div>
     </div>
 

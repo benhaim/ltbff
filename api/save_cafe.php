@@ -28,28 +28,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($existingPlace) {
             error_log("Updating existing place ID: " . $existingPlace['id']);
             // Update existing place with running average
+            $updateFields = [];
+            $params = ['id' => $existingPlace['id']];
+
+            // Only include ratings that were submitted
+            foreach (['wifi', 'power', 'quiet', 'coffee', 'food'] as $ratingType) {
+                if (isset($data['ratings'][$ratingType])) {
+                    $updateFields[] = "{$ratingType}_rating = (({$ratingType}_rating * total_ratings) + :{$ratingType}) / (total_ratings + 1)";
+                    $params[$ratingType] = floatval($data['ratings'][$ratingType]);
+                }
+            }
+
+            // Handle wifi password if provided
+            if (!empty($data['wifi_password'])) {
+                $updateFields[] = "wifi_password = :wifi_password";
+                $params['wifi_password'] = $data['wifi_password'];
+            }
+
+            // Only increment total_ratings if at least one rating was submitted
+            if (!empty($updateFields)) {
+                $updateFields[] = "total_ratings = total_ratings + 1";
+            }
+
             $stmt = $pdo->prepare("
                 UPDATE cafes 
-                SET 
-                    wifi_rating = ROUND(((wifi_rating * total_ratings) + :wifi) / (total_ratings + 1), 1),
-                    power_rating = ROUND(((power_rating * total_ratings) + :power) / (total_ratings + 1), 1),
-                    quiet_rating = ROUND(((quiet_rating * total_ratings) + :quiet) / (total_ratings + 1), 1),
-                    coffee_rating = ROUND(((coffee_rating * total_ratings) + :coffee) / (total_ratings + 1), 1),
-                    food_rating = ROUND(((food_rating * total_ratings) + :food) / (total_ratings + 1), 1),
-                    wifi_password = COALESCE(:wifi_password, wifi_password),
-                    total_ratings = total_ratings + 1
+                SET " . implode(", ", $updateFields) . "
                 WHERE id = :id
             ");
-            
-            $result = $stmt->execute([
-                'id' => $existingPlace['id'],
-                'wifi' => floatval($data['ratings']['wifi']),
-                'power' => floatval($data['ratings']['power']),
-                'quiet' => floatval($data['ratings']['quiet']),
-                'coffee' => floatval($data['ratings']['coffee']),
-                'food' => floatval($data['ratings']['food']),
-                'wifi_password' => $data['wifi_password'] ?? null
-            ]);
+
+            $result = $stmt->execute($params);
 
             // Get updated ratings
             if ($result) {
@@ -60,11 +67,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $updatedPlace = $getUpdated->fetch(PDO::FETCH_ASSOC);
                 
                 $data['ratings'] = [
-                    'wifi' => round(floatval($updatedPlace['wifi_rating'])),
-                    'power' => round(floatval($updatedPlace['power_rating'])),
-                    'quiet' => round(floatval($updatedPlace['quiet_rating'])),
-                    'coffee' => round(floatval($updatedPlace['coffee_rating'])),
-                    'food' => round(floatval($updatedPlace['food_rating']))
+                    'wifi' => floatval($updatedPlace['wifi_rating']),
+                    'power' => floatval($updatedPlace['power_rating']),
+                    'quiet' => floatval($updatedPlace['quiet_rating']),
+                    'coffee' => floatval($updatedPlace['coffee_rating']),
+                    'food' => floatval($updatedPlace['food_rating'])
                 ];
                 $data['total_ratings'] = $updatedPlace['total_ratings'];
             }

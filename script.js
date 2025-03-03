@@ -6,21 +6,22 @@ let autocomplete;
 let selectedPlace = null;
 let allMarkers = [];
 
-// Keep the same rating labels and icons from the original version
-const ratingLabels = {
-    wifi: ['Basic', 'Fast', 'Rocket 🚀'],
-    power: ['Rare', 'Available', 'Abundant'],
-    quiet: ['Lively', 'Chill', 'Silent'],
-    coffee: ['Basic', 'Good', 'Amazing'],
-    food: ['None', 'Snacks', 'Full Menu']
+// Update the rating options object
+const ratingOptions = {
+    wifi: ['Basic', 'Rocket 🚀'],
+    power: ['Rare', 'Abundant'],
+    vibe: ['Library', 'Lively'],
+    coffee: ['Good', 'Amazing'],
+    food: ['No', 'Yes']
 };
 
+// Update the category icons with pairs for each state [0, 1]
 const categoryIcons = {
-    wifi: 'fa-wifi',
-    power: 'fa-plug',
-    quiet: 'fa-volume-low',
-    coffee: 'fa-mug-hot',
-    food: 'fa-utensils'
+    wifi: ['fa-wifi', 'fa-wifi fa-rocket'],  // For wifi, we'll handle the rocket separately
+    power: ['fa-plug-circle-xmark', 'fa-plug-circle-check'],
+    vibe: ['fa-book', 'fa-comments'],
+    coffee: ['fa-mug-saucer', 'fa-mug-hot'],
+    food: ['fa-burger', 'fa-burger']  // For food, we'll handle the slash separately
 };
 
 // Add these style constants at the top of the file
@@ -214,7 +215,10 @@ async function initMap() {
             zoom: DEFAULT_ZOOM,
             center: location,
             disableDefaultUI: true,
-            zoomControl: false,
+            zoomControl: true,
+            zoomControlOptions: {
+                position: google.maps.ControlPosition.RIGHT_CENTER,
+              },
             gestureHandling: "greedy",
             scrollwheel: true,
             draggable: true,
@@ -354,52 +358,6 @@ async function initMap() {
         showNotification('error', 'Failed to initialize map');
     }
 
-    // Add after initMap is done initializing
-    document.getElementById('addBtn').addEventListener('click', () => {
-        if (!service) {
-            console.error('Places service not initialized');
-            return;
-        }
-
-        const center = map.getCenter();
-        
-        const request = {
-            query: 'cafe',
-            fields: ['name', 'geometry', 'formatted_address', 'types'],
-            locationBias: {
-                center: center,
-                radius: 100  // Search within 100 meters
-            }
-        };
-
-        try {
-            service.findPlaceFromQuery(request, (results, status) => {
-                console.log('Search status:', status);
-                console.log('Results:', results);
-                
-                if (status === google.maps.places.PlacesServiceStatus.OK && results && results.length > 0) {
-                    // Get the nearest place
-                    const nearestPlace = results[0];
-                    
-                    // Zoom and pan to it
-                    map.setZoom(20);  // Maximum zoom
-                    map.panTo(nearestPlace.geometry.location);
-                    
-                    // Show place details in info window
-                    infoWindow.setContent(generatePopupContent(nearestPlace));
-                    infoWindow.setPosition(nearestPlace.geometry.location);
-                    infoWindow.open(map);
-                } else {
-                    console.log('No places found or service error');
-                    showNotification('error', 'No places found nearby');
-                }
-            });
-        } catch (error) {
-            console.error('Places API error:', error);
-            showNotification('error', 'Failed to search nearby places');
-        }
-    });
-
     // Update the info button creation
     const infoBtn = document.createElement('button');
     infoBtn.className = 'location-btn info-btn';  // Use location-btn as base class
@@ -450,69 +408,8 @@ async function initMap() {
 
 // Update initializeUI to remove location functionality
 function initializeUI() {
-    // Initialize form submission
-    const cafeForm = document.getElementById('cafeForm');
-    if (cafeForm) {
-        generateRatingGroups();
-        cafeForm.onsubmit = submitCafeForm;
-    }
-
     // Initialize autocomplete immediately since search is always visible
     initializeAutocomplete();
-
-    // Add cancel button handler
-    const cancelBtn = document.getElementById('cancelBtn');
-    if (cancelBtn) {
-        cancelBtn.addEventListener('click', () => {
-            const addCafeForm = document.getElementById('addCafeForm');
-            addCafeForm.classList.add('hidden');
-            addCafeForm.classList.remove('visible');
-        });
-    }
-}
-
-// Update the generateRatingGroups function
-function generateRatingGroups() {
-    const container = document.querySelector('.ratings-container');
-    if (container) {
-        console.log('Generating rating groups...');
-        container.innerHTML = ''; // Clear existing content
-
-        // First add all rating groups
-        Object.keys(ratingLabels).forEach(category => {
-            const group = document.createElement('div');
-            group.className = 'rating-group';
-            group.innerHTML = `
-                <i class="fa-solid ${categoryIcons[category]}"></i>
-                <div class="rating-options" data-rating="${category}">
-                    ${ratingLabels[category].map((label, index) => `
-                        <label class="rating-option">
-                            <input type="radio" name="${category}" value="${index + 1}">
-                            <span class="rating-label">${label}</span>
-                        </label>
-                    `).join('')}
-                </div>
-            `;
-            container.appendChild(group);
-        });
-
-        // Add WiFi password input at the bottom
-        const wifiPasswordGroup = document.createElement('div');
-        wifiPasswordGroup.className = 'wifi-password-group';
-        wifiPasswordGroup.innerHTML = `
-            <div class="wifi-password-input">
-                <i class="fa-solid fa-key"></i>
-                <input type="text" 
-                       name="wifi_password" 
-                       id="wifi_password" 
-                       placeholder="WiFi Password"
-                       maxlength="255">
-            </div>
-        `;
-        container.appendChild(wifiPasswordGroup);
-    } else {
-        console.error('Ratings container not found');
-    }
 }
 
 // Update the submitCafeForm function
@@ -526,14 +423,12 @@ function submitCafeForm(event) {
 
     // Get all the ratings (now optional)
     const ratings = {};
-    const ratingFields = ['wifi', 'power', 'quiet', 'coffee', 'food'];
+    const ratingFields = ['wifi', 'power', 'vibe', 'coffee', 'food'];
     ratingFields.forEach(field => {
         const selectedOption = document.querySelector(`input[name="${field}"]:checked`);
         // Only include rating if it was selected
         if (selectedOption) {
-            ratings[field] = selectedOption.value;
-        } else {
-            ratings[field] = "1";  // Default value if not rated
+            ratings[field] = selectedOption.value;  // Now directly using 0 or 1
         }
     });
 
@@ -644,14 +539,14 @@ function loadExistingCafes() {
                         address: cafe.address,
                         lat: parseFloat(cafe.latitude),
                         lng: parseFloat(cafe.longitude),
-                        total_ratings: parseInt(cafe.total_ratings) || 1,
+                        total_ratings: parseInt(cafe.total_ratings) || 0,
                         wifi_password: cafe.wifi_password,
                         ratings: {
-                            wifi: Math.round(parseFloat(cafe.wifi_rating)) || 1,
-                            power: Math.round(parseFloat(cafe.power_rating)) || 1,
-                            quiet: Math.round(parseFloat(cafe.quiet_rating)) || 1,
-                            coffee: Math.round(parseFloat(cafe.coffee_rating)) || 1,
-                            food: Math.round(parseFloat(cafe.food_rating)) || 1
+                            wifi: cafe.wifi_rating,
+                            power: cafe.power_rating,
+                            vibe: cafe.quiet_rating,
+                            coffee: cafe.coffee_rating,
+                            food: cafe.food_rating
                         }
                     };
                     
@@ -893,70 +788,116 @@ async function initializeAutocomplete() {
 }
 
 // Update the showRatingForm function
-function showRatingForm(cafe = null) {
-    const addCafeForm = document.getElementById('addCafeForm');
-    const cafeForm = document.getElementById('cafeForm');
-    const formTitle = addCafeForm.querySelector('h2');
+function showRatingForm(cafe) {
+    const form = document.querySelector('.ratings-form');
+    if (!form) return;
 
-    // Reset form state completely
-    cafeForm.reset();
+    // Enable all radio inputs and show all options
+    form.querySelectorAll('.rating-options-stack').forEach(stack => {
+        stack.classList.add('rating');
+        // Uncheck all radio inputs in this stack
+        stack.querySelectorAll('input[type="radio"]').forEach(input => {
+            input.checked = false;
+            input.disabled = false;
+        });
+    });
 
-    // Update form appearance based on whether we're rating existing or adding new
-    if (cafe) {
-        formTitle.textContent = `Rate ${cafe.name}`;
-        // Store the cafe data for submission
-        selectedPlace = {
-            name: cafe.name,
-            lat: cafe.lat,
-            lng: cafe.lng,
-            address: cafe.address
-        };
+    // Handle WiFi password field
+    let wifiInput = form.querySelector('input[name="wifi_password"]');
+    if (wifiInput) {
+        // Make existing field editable
+        wifiInput.readOnly = false;
+        wifiInput.classList.remove('readonly-input');
+        const copyIcon = form.querySelector('.copy-icon');
+        if (copyIcon) {
+            copyIcon.remove();
+        }
     } else {
-        formTitle.textContent = 'Add New Place';
-        selectedPlace = null;
+        // Create new WiFi field if it doesn't exist
+        const wifiInfo = document.createElement('div');
+        wifiInfo.className = 'wifi-info';
+        wifiInfo.innerHTML = `
+            <div class="wifi-password-input">
+                <i class="fa-solid fa-key"></i>
+                <input type="text" 
+                       name="wifi_password" 
+                       placeholder="WiFi Password"
+                       maxlength="255">
+            </div>
+        `;
+        const rateBtn = form.querySelector('.rate-btn');
+        if (rateBtn) {
+            form.insertBefore(wifiInfo, rateBtn);
+        }
     }
 
-    // Add close button to form header
-    const closeBtn = document.createElement('button');
-    closeBtn.type = 'button';
-    closeBtn.className = 'form-close-btn';
-    closeBtn.innerHTML = '<i class="fa-solid fa-times"></i>';
-    closeBtn.onclick = () => {
-        addCafeForm.classList.add('hidden');
-        addCafeForm.classList.remove('visible');
-    };
-
-    // Add close button to form header
-    const formHeader = addCafeForm.querySelector('h2').parentElement;
-    formHeader.style.position = 'relative';
-    formHeader.appendChild(closeBtn);
-
-    // Update submit button
-    const submitBtn = cafeForm.querySelector('button[type="submit"]');
-    submitBtn.className = 'form-submit-btn';
-    submitBtn.innerHTML = '<i class="fa-solid fa-plus"></i>';
-
-    // Remove existing cancel button
-    const existingCancelBtn = document.getElementById('cancelBtn');
-    if (existingCancelBtn) {
-        existingCancelBtn.remove();
-    }
-
-    // Show the form
-    addCafeForm.classList.remove('hidden');
-    addCafeForm.classList.add('visible');
-
-    // Close any existing details panel
-    const existingPanel = document.querySelector('.details-panel');
-    if (existingPanel) {
-        existingPanel.remove();
-    }
+    // Replace rate button with submit button
+    const actionButtons = document.createElement('div');
+    actionButtons.className = 'rating-actions';
+    actionButtons.innerHTML = `
+        <button type="button" class="submit-rating">Submit</button>
+    `;
     
-    // Remove any existing panel overlay
-    const existingOverlay = document.querySelector('.panel-overlay');
-    if (existingOverlay) {
-        existingOverlay.remove();
+    const rateBtn = form.querySelector('.rate-btn');
+    if (rateBtn) {
+        rateBtn.replaceWith(actionButtons);
     }
+
+    // Add event listener for submit
+    const submitBtn = form.querySelector('.submit-rating');
+    if (submitBtn) {
+        submitBtn.addEventListener('click', () => {
+            // Get the ratings and submit them
+            const ratings = {};
+            const ratingFields = ['wifi', 'power', 'vibe', 'coffee', 'food'];
+            ratingFields.forEach(field => {
+                const selectedOption = form.querySelector(`input[name="${field}"]:checked`);
+                if (selectedOption) {
+                    ratings[field] = selectedOption.value;
+                }
+            });
+
+            const wifiPassword = form.querySelector('input[name="wifi_password"]').value.trim();
+
+            const data = {
+                name: cafe.name,
+                lat: cafe.lat,
+                lng: cafe.lng,
+                address: cafe.address,
+                ratings: ratings,
+                wifi_password: wifiPassword
+            };
+
+            submitRating(data, () => {
+                loadExistingCafes();
+                infoWindow.close();
+            });
+        });
+    }
+}
+
+// Add this helper function to handle the submission
+function submitRating(data, onSuccess) {
+    fetch('api/save_cafe.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            showNotification('success', 'Rating saved successfully');
+            if (onSuccess) onSuccess();
+        } else {
+            showNotification('error', result.error || 'Failed to save rating');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('error', 'Failed to save rating');
+    });
 }
 
 // This is the main notification function we're using
@@ -990,74 +931,85 @@ function showNotification(type, message) {
 
 // Update the generatePopupContent function
 function generatePopupContent(place) {
-    // Helper function to get a friendly place type
-    function getPlaceType(place) {
-        if (place.types && place.types.length > 0) {
-            return place.types[0].split('_')
-                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                .join(' ');
-        }
-        return 'Place';
+    // Helper function to get rating display value (0 or 1)
+    function getRatingDisplay(rating) {
+        return parseFloat(rating) >= 0.5 ? 1 : 0;
     }
 
-    // Get the ID from the database record if it exists
     const placeId = place.id || (place.marker && place.marker.cafeId);
     
-    console.log("Generating popup content for place:", place);
-    console.log("Place ID:", placeId);
-
     return `
         <div class="popup-content">
             <div class="popup-header">
                 <h3>${place.name}</h3>
                 <div class="map-actions">
-                    ${!place.ratings ? `
-                    <a href="https://www.google.com/maps/search/${place.place_id ? 
-                        `place/?q=place_id:${place.place_id}` : 
-                        encodeURIComponent(place.name)}" 
-                       target="_blank" 
-                       class="map-link"
-                       title="Open in Google Maps">
-                        <i class="fa-solid fa-map-location-dot"></i>
-                    </a>
-                    ` : ''}
                     ${place.ratings ? `
-                    <a href="https://www.google.com/maps/dir/?api=1&destination=${
-                        encodeURIComponent(place.name)}&destination_place_id=${place.place_id || ''}" 
-                       target="_blank"
-                       class="map-link"
-                       title="Get Directions">
-                        <i class="fa-solid fa-route"></i>
-                    </a>
-                    <button class="delete-btn" onclick="showDeleteConfirmation('${placeId}', '${place.name.replace(/'/g, "\\'")}')" title="Remove this place">
-                        <i class="fa-solid fa-trash"></i>
-                    </button>
-                    ` : ''}
+                        <a href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(place.name)}" 
+                           target="_blank" class="map-link">
+                            <i class="fa-solid fa-route"></i>
+                        </a>
+                        <button class="delete-btn" onclick="showDeleteConfirmation('${placeId}', '${place.name.replace(/'/g, "\\'")}')">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    ` : `
+                        <a href="https://www.google.com/maps/search/${encodeURIComponent(place.name)}" 
+                           target="_blank" class="map-link">
+                            <i class="fa-solid fa-map-location-dot"></i>
+                        </a>
+                    `}
                 </div>
             </div>
-            <p class="place-type">${getPlaceType(place)}</p>
-            ${place.ratings ? `
-                <div class="quick-ratings">
-                    ${Object.entries(place.ratings).map(([category, rating]) => `
-                        <div class="rating-item" title="${category}">
-                            <i class="fa-solid ${categoryIcons[category]}"></i>
-                            <span class="rating-value rating-level-${rating}">${rating}/3</span>
+            <form class="ratings-form">
+                <div class="rating-icons">
+                    ${Object.entries(ratingOptions).map(([category, labels]) => `
+                        <div class="rating-group" data-rating="${category}">
+                            <div class="rating-options-stack">
+                                <div class="rating-option ${place.ratings && getRatingDisplay(place.ratings[category]) === 1 ? 'selected' : ''}">
+                                    <input type="radio" name="${category}" value="1" id="${category}_1"
+                                           ${place.ratings && getRatingDisplay(place.ratings[category]) === 1 ? 'checked disabled' : ''}>
+                                    <label for="${category}_1">
+                                        ${category === 'wifi' ? `
+                                            <i class="fa-solid fa-wifi"></i><i class="fa-solid fa-rocket"></i>
+                                        ` : `
+                                            <i class="fa-solid ${categoryIcons[category][1]}"></i>
+                                        `}
+                                    </label>
+                                </div>
+                                <div class="rating-option ${place.ratings && getRatingDisplay(place.ratings[category]) === 0 ? 'selected' : ''}">
+                                    <input type="radio" name="${category}" value="0" id="${category}_0"
+                                           ${place.ratings && getRatingDisplay(place.ratings[category]) === 0 ? 'checked disabled' : ''}>
+                                    <label for="${category}_0">
+                                        ${category === 'food' ? `
+                                            <span class="fa-layers fa-fw">
+                                                <i class="fa-solid fa-burger"></i>
+                                                <i class="fa-solid fa-slash"></i>
+                                            </span>
+                                        ` : `
+                                            <i class="fa-solid ${categoryIcons[category][0]}"></i>
+                                        `}
+                                    </label>
+                                </div>
+                            </div>
                         </div>
                     `).join('')}
                 </div>
-            ` : ''}
-            ${place.ratings && place.wifi_password ? `
-                <div class="wifi-info">
-                    <span class="wifi-password" onclick="copyWifiPassword(this, '${place.wifi_password}')" title="Click to copy">
-                        <i class="fa-solid fa-key"></i>
-                        ${place.wifi_password}
-                        <i class="fa-regular fa-copy"></i>
-                    </span>
-                </div>
-            ` : ''}
-            <button class="rate-btn">
-                <i class="fa-solid fa-star"></i> Rate This Place
-            </button>
+                ${place.ratings && place.wifi_password ? `
+                    <div class="wifi-info">
+                        <div class="wifi-password-input">
+                            <i class="fa-solid fa-key"></i>
+                            <input type="text" 
+                                   name="wifi_password" 
+                                   value="${place.wifi_password}"
+                                   readonly
+                                   class="readonly-input">
+                            <i class="fa-regular fa-copy copy-icon" onclick="copyWifiPassword(this, '${place.wifi_password}')"></i>
+                        </div>
+                    </div>
+                ` : ''}
+                <button type="button" class="rate-btn">
+                    <i class="fa-solid fa-star"></i> Rate This Place
+                </button>
+            </form>
         </div>
     `;
 }
