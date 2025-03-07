@@ -5,6 +5,44 @@ let infoWindow;
 let autocomplete;
 let selectedPlace = null;
 let allMarkers = [];
+let UserLocationMarker; // Declare the class variable
+let preloadedCafes = new Map(); // Store preloaded data
+let lastViewport = null;     // Track last viewport
+
+// Define the class after Google Maps loads
+function defineUserLocationMarker() {
+    UserLocationMarker = class extends google.maps.OverlayView {
+        constructor(position) {
+            super();
+            this.position = position;
+            this.div = null;
+        }
+
+        onAdd() {
+            this.div = document.createElement('div');
+            this.div.className = 'user-location-marker';
+            const panes = this.getPanes();
+            panes.overlayLayer.appendChild(this.div);
+        }
+
+        draw() {
+            const overlayProjection = this.getProjection();
+            const point = overlayProjection.fromLatLngToDivPixel(this.position);
+            
+            if (this.div) {
+                this.div.style.left = (point.x - 8) + 'px';
+                this.div.style.top = (point.y - 8) + 'px';
+            }
+        }
+
+        onRemove() {
+            if (this.div) {
+                this.div.parentNode.removeChild(this.div);
+                this.div = null;
+            }
+        }
+    }
+}
 
 // Update the rating options object
 const ratingOptions = {
@@ -188,6 +226,9 @@ const MIN_ZOOM = 3;
 // Main initialization function
 async function initMap() {
     try {
+        // Define the UserLocationMarker class now that Google Maps is loaded
+        defineUserLocationMarker();
+        
         // Start loading everything
         const locationPromise = new Promise((resolve, reject) => {
             if (navigator.geolocation) {
@@ -218,51 +259,36 @@ async function initMap() {
             zoomControl: true,
             zoomControlOptions: {
                 position: google.maps.ControlPosition.RIGHT_CENTER,
-              },
+            },
             gestureHandling: "greedy",
             scrollwheel: true,
             draggable: true,
             keyboardShortcuts: false,
             minZoom: MIN_ZOOM,
             maxZoom: MAX_ZOOM,
-            styles: DEFAULT_STYLE
+            styles: DEFAULT_STYLE,
+            zoomDuration: 300,          // Duration of zoom animations
+            animatedZoom: true,         // Enable smooth zooming
+            panDuration: 250,           // Duration of pan animations
+            streetViewControl: false    // Disable street view to prevent accidental triggers
+        });
+
+        // Wait for map to be idle before setting up viewport loading
+        google.maps.event.addListenerOnce(map, 'idle', () => {
+            // Add viewport-based loading
+            let timeoutId;
+            map.addListener('bounds_changed', () => {
+                clearTimeout(timeoutId);
+                timeoutId = setTimeout(loadExistingCafes, 300);
+            });
+
+            // Initial load of cafes
+            loadExistingCafes();
         });
 
         // Add user location marker after map is initialized
         const defaultLocation = { lat: 18.7883, lng: 98.9853 };
         if (location.lat !== defaultLocation.lat || location.lng !== defaultLocation.lng) {
-            class UserLocationMarker extends google.maps.OverlayView {
-                constructor(position) {
-                    super();
-                    this.position = position;
-                    this.div = null;
-                }
-            
-                onAdd() {
-                    this.div = document.createElement('div');
-                    this.div.className = 'user-location-marker';
-                    const panes = this.getPanes();
-                    panes.overlayLayer.appendChild(this.div);
-                }
-            
-                draw() {
-                    const overlayProjection = this.getProjection();
-                    const point = overlayProjection.fromLatLngToDivPixel(this.position);
-                    
-                    if (this.div) {
-                        this.div.style.left = (point.x - 8) + 'px';  // Center horizontally (16/2)
-                        this.div.style.top = (point.y - 8) + 'px';   // Center vertically (16/2)
-                    }
-                }
-            
-                onRemove() {
-                    if (this.div) {
-                        this.div.parentNode.removeChild(this.div);
-                        this.div = null;
-                    }
-                }
-            }
-            
             const userMarker = new UserLocationMarker(new google.maps.LatLng(location.lat, location.lng));
             userMarker.setMap(map);
         }
@@ -344,7 +370,6 @@ async function initMap() {
         // Add this in initMap after creating the map
         map.addListener('zoom_changed', () => {
             const currentZoom = map.getZoom();
-            console.log('Current zoom level:', currentZoom);
             
             if (currentZoom >= DEFAULT_ZOOM) {
                 map.setOptions({ styles: ZOOMED_STYLE });
@@ -352,6 +377,23 @@ async function initMap() {
                 map.setOptions({ styles: DEFAULT_STYLE });
             }
         });
+
+        // Check for shared cafe in URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const sharedCafeId = urlParams.get('cafe');
+        const sharedLat = parseFloat(urlParams.get('lat'));
+        const sharedLng = parseFloat(urlParams.get('lng'));
+
+        if (sharedCafeId && !isNaN(sharedLat) && !isNaN(sharedLng)) {
+            // Hide splash screen immediately for shared links
+            const splash = document.getElementById('splashScreen');
+            splash.style.display = 'none';
+            
+            // Wait for map to be idle before opening shared cafe
+            google.maps.event.addListenerOnce(map, 'idle', () => {
+                openSharedCafe(sharedCafeId, sharedLat, sharedLng);
+            });
+        }
 
     } catch (error) {
         console.error('Error initializing map:', error);
@@ -383,22 +425,49 @@ async function initMap() {
                             lng: position.coords.longitude,
                         };
 
-                        // First pan smoothly to the location
-                        map.panTo(pos);
+                        // Update user location marker if it exists
+                        const userMarker = document.querySelector('.user-location-marker');
+                        if (userMarker && map) {
+                            // Create a new UserLocationMarker instance
+                            const newUserMarker = new UserLocationMarker(
+                                new google.maps.LatLng(pos.lat, pos.lng)
+                            );
+                            // Remove old marker
+                            userMarker.remove();
+                            // Add new marker
+                            newUserMarker.setMap(map);
+                        }
+
+                        // Smooth pan and zoom
+                        map.panTo(pos);  // This is already smooth
                         
-                        // Then zoom in after a short delay
-                        setTimeout(() => {
-                            const currentZoom = map.getZoom();
-                            if (currentZoom < 17) {
-                                map.setZoom(17);
-                            }
+                        const targetZoom = 17;
+                        const currentZoom = map.getZoom();
+                        
+                        if (currentZoom < targetZoom) {
+                            // Zoom in gradually
+                            const zoomStep = () => {
+                                const nextZoom = Math.min(map.getZoom() + 1, targetZoom);
+                                map.setZoom(nextZoom);
+                                if (nextZoom < targetZoom) {
+                                    setTimeout(zoomStep, 100);
+                                }
+                                locationBtn.disabled = false;
+                            };
+                            setTimeout(zoomStep, 300);  // Start after pan completes
+                        } else {
                             locationBtn.disabled = false;
-                        }, 300);
+                        }
                     },
                     (error) => {
                         console.error('Geolocation error:', error);
                         showNotification('error', 'Could not get your location');
                         locationBtn.disabled = false;
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        maximumAge: 0,
+                        timeout: 5000
                     }
                 );
             }
@@ -520,45 +589,120 @@ function submitCafeForm(event) {
 
 // Update the loadExistingCafes function
 function loadExistingCafes() {
-    // Clear all existing markers
-    allMarkers.forEach(marker => {
-        marker.setMap(null);
-    });
-    allMarkers = [];
+    const bounds = map.getBounds();
+    if (!bounds) return;
+
+    // Calculate current viewport with buffer
+    const buffer = {
+        lat: (bounds.getNorthEast().lat() - bounds.getSouthWest().lat()) * 2.0,
+        lng: (bounds.getNorthEast().lng() - bounds.getSouthWest().lng()) * 2.0
+    };
+
+    const viewport = {
+        north: bounds.getNorthEast().lat() + buffer.lat,
+        south: bounds.getSouthWest().lat() - buffer.lat,
+        east: bounds.getNorthEast().lng() + buffer.lng,
+        west: bounds.getSouthWest().lng() - buffer.lng
+    };
+
+    // Check if we have preloaded data for this area
+    const viewportKey = `${viewport.north},${viewport.south},${viewport.east},${viewport.west}`;
+    if (preloadedCafes.has(viewportKey)) {
+        const cafes = preloadedCafes.get(viewportKey);
+        updateMarkersWithCafes(cafes);
+        preloadedCafes.delete(viewportKey); // Clear used data
+        return;
+    }
+
+    // Load current viewport
+    fetchCafesForViewport(viewport, updateMarkersWithCafes);
     
-    console.log('Loading existing cafés...');
-    fetch('api/get_cafes.php')
+    // Preload adjacent areas
+    preloadAdjacentAreas(viewport);
+}
+
+function preloadAdjacentAreas(viewport) {
+    const latSpan = viewport.north - viewport.south;
+    const lngSpan = viewport.east - viewport.west;
+    
+    // Define adjacent viewports (north, south, east, west)
+    const adjacentViewports = [
+        { // North
+            north: viewport.north + latSpan,
+            south: viewport.north,
+            east: viewport.east,
+            west: viewport.west
+        },
+        { // South
+            north: viewport.south,
+            south: viewport.south - latSpan,
+            east: viewport.east,
+            west: viewport.west
+        },
+        { // East
+            north: viewport.north,
+            south: viewport.south,
+            east: viewport.east + lngSpan,
+            west: viewport.east
+        },
+        { // West
+            north: viewport.north,
+            south: viewport.south,
+            east: viewport.west,
+            west: viewport.west - lngSpan
+        }
+    ];
+
+    // Preload each adjacent area
+    adjacentViewports.forEach(adjViewport => {
+        const viewportKey = `${adjViewport.north},${adjViewport.south},${adjViewport.east},${adjViewport.west}`;
+        if (!preloadedCafes.has(viewportKey)) {
+            fetchCafesForViewport(adjViewport, (cafes) => {
+                preloadedCafes.set(viewportKey, cafes);
+            });
+        }
+    });
+}
+
+function fetchCafesForViewport(viewport, callback) {
+    fetch(`api/get_cafes.php?viewport=${encodeURIComponent(JSON.stringify(viewport))}`)
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                console.log('Loaded cafés:', data.cafes.length);
-                data.cafes.forEach(async cafe => {
-                    const cafeData = {
-                        id: cafe.id,
-                        name: cafe.name,
-                        address: cafe.address,
-                        lat: parseFloat(cafe.latitude),
-                        lng: parseFloat(cafe.longitude),
-                        total_ratings: parseInt(cafe.total_ratings) || 0,
-                        wifi_password: cafe.wifi_password,
-                        ratings: {
-                            wifi: cafe.wifi_rating,
-                            power: cafe.power_rating,
-                            vibe: cafe.quiet_rating,
-                            coffee: cafe.coffee_rating,
-                            food: cafe.food_rating
-                        }
-                    };
-                    
-                    const marker = await createRatedCafeMarker(cafeData);
-                    marker.cafeId = cafe.id;
-                    allMarkers.push(marker);
-                });
-            } else {
-                console.error('Error loading cafés:', data.error);
+                callback(data.cafes);
             }
         })
         .catch(error => console.error('Error:', error));
+}
+
+function updateMarkersWithCafes(cafes) {
+    // Clear existing markers
+    allMarkers.forEach(marker => marker.setMap(null));
+    allMarkers = [];
+
+    // Create new markers
+    cafes.forEach(async cafe => {
+        const cafeData = {
+            id: cafe.id,
+            name: cafe.name,
+            address: cafe.address,
+            lat: parseFloat(cafe.latitude),
+            lng: parseFloat(cafe.longitude),
+            total_ratings: parseInt(cafe.total_ratings) || 0,
+            wifi_password: cafe.wifi_password,
+            ratings: {
+                wifi: cafe.wifi_rating,
+                power: cafe.power_rating,
+                vibe: cafe.quiet_rating,
+                coffee: cafe.coffee_rating,
+                food: cafe.food_rating
+            }
+        };
+        
+        const marker = await createRatedCafeMarker(cafeData);
+        marker.cafeId = cafe.id;
+        allMarkers.push(marker);
+    });
 }
 
 // Update the createRatedCafeMarker function
@@ -941,6 +1085,11 @@ function generatePopupContent(place) {
     return `
         <div class="popup-content">
             <div class="popup-header">
+                ${place.ratings ? `
+                    <button class="share-btn" onclick="shareCafe('${place.id}', '${place.name.replace(/'/g, "\\'")}', ${place.lat}, ${place.lng})">
+                        <i class="fa-solid fa-share-nodes"></i>
+                    </button>
+                ` : ''}
                 <h3>${place.name}</h3>
                 <div class="map-actions">
                     ${place.ratings ? `
@@ -948,7 +1097,7 @@ function generatePopupContent(place) {
                            target="_blank" class="map-link">
                             <i class="fa-solid fa-route"></i>
                         </a>
-                        <button class="delete-btn" onclick="showDeleteConfirmation('${placeId}', '${place.name.replace(/'/g, "\\'")}')">
+                        <button class="delete-btn" onclick="showDeleteConfirmation('${place.id}', '${place.name.replace(/'/g, "\\'")}')">
                             <i class="fa-solid fa-trash"></i>
                         </button>
                     ` : `
@@ -1250,3 +1399,72 @@ function copyWifiPassword(element, password) {
         showNotification('error', 'Failed to copy WiFi password');
     });
 }
+
+// Add the share function
+async function shareCafe(id, name, lat, lng) {
+    const shareUrl = `${window.location.origin}${window.location.pathname}?cafe=${id}&lat=${lat}&lng=${lng}`;
+    const shareText = `Check out ${name} on LaptopBFF!`;
+
+    try {
+        if (navigator.share) {
+            await navigator.share({
+                title: 'LaptopBFF Café',
+                text: shareText,
+                url: shareUrl
+            });
+        } else {
+            // Fallback for browsers that don't support Web Share API
+            navigator.clipboard.writeText(shareUrl);
+            showNotification('success', 'Link copied to clipboard!');
+        }
+    } catch (error) {
+        console.error('Error sharing:', error);
+        showNotification('error', 'Failed to share');
+    }
+}
+
+// Update the openSharedCafe function
+async function openSharedCafe(sharedCafeId, sharedLat, sharedLng) {
+    // Center map on shared cafe location
+    map.setCenter({ lat: sharedLat, lng: sharedLng });
+    map.setZoom(17);
+
+    // Show loading notification
+    showNotification('info', 'Loading cafe details...');
+
+    // Keep trying to find the marker for up to 5 seconds
+    let attempts = 0;
+    const maxAttempts = 10;
+    const findMarker = async () => {
+        // Debug log to see what we're working with
+        console.log('Looking for cafe:', sharedCafeId);
+        console.log('Current markers:', allMarkers.map(m => ({ id: m.cafeId, name: m.title })));
+        
+        const marker = allMarkers.find(m => {
+            // Convert both IDs to strings for comparison
+            return String(m.cafeId) === String(sharedCafeId);
+        });
+
+        if (marker) {
+            console.log('Found marker:', marker);
+            google.maps.event.trigger(marker, 'click');
+        } else if (attempts < maxAttempts) {
+            attempts++;
+            console.log(`Attempt ${attempts} - Loading cafes again...`);
+            await loadExistingCafes(); // Reload cafes
+            setTimeout(findMarker, 1000); // Increased timeout to 1 second
+        } else {
+            showNotification('error', 'Could not find the cafe');
+        }
+    };
+
+    // Initial load of cafes before starting the find attempts
+    await loadExistingCafes();
+    await findMarker();
+}
+
+// Update the infoWindow click handler to handle closing
+google.maps.event.addListener(infoWindow, 'closeclick', () => {
+    // Just let the normal close behavior happen
+    // No need to do anything special when closing a shared cafe popup
+});

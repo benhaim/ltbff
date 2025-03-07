@@ -560,13 +560,24 @@ button:hover {
 .popup-header {
     display: flex;
     align-items: center;
-    gap: 4px;
-    margin-bottom: 12px;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    gap: 8px;
 }
 
 .popup-header h3 {
     margin: 0;
     flex: 1;
+}
+
+.share-btn {
+    padding: 6px;
+    margin: 0;  /* Remove margin-right */
+    color: #666;  /* Match other icon colors */
+}
+
+.share-btn:hover {
+    background: rgba(0, 0, 0, 0.1);  /* Match other hover states */
 }
 
 .map-link {
@@ -1269,4 +1280,18 @@ button:hover {
     margin: 0px -6px;
     width: 28px;
     object-fit: contain;  /* Add this to ensure image scales properly */
+}
+
+.share-btn {
+    background: none;
+    border: none;
+    color: #1a73e8;
+    cursor: pointer;
+    padding: 8px;
+    margin-right: 8px;
+    border-radius: 50%;
+}
+
+.share-btn:hover {
+    background: rgba(26, 115, 232, 0.1);
 }
